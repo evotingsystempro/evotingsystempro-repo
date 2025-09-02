@@ -1,62 +1,67 @@
-# 🔐 Cross-Platform Authentication with Expo: Google & Apple Sign-In Example
+# VR-Draught App
 
-This is an [Expo](https://expo.dev) project demonstrating a BFF (Backend-for-Frontend) architecture for Google authentication using Expo API Routes and JWTs.
+### 📌 Project Overview
 
-## Features
+The **VR-Draught App** is an essential tool for promoting **professionalism, accountability, and growth** in the game of draughts. It provides structured record-keeping, transparent tournament management, and digital tools for advancing the draught community.
 
-- 🔐 Google Authentication
--  Apple Authentication
-- 🎯 BFF Architecture with Expo API Routes
-- 🎫 JWT-based token management (for native)
-- 🎫 Cookies-based session management (for web)
-- 📱 Cross-platform support (iOS, Android, Web)
-- 🔄 Token refresh mechanism
-- 🛡️ Protected API routes
+---
 
-## 🎥 Google Video
+## 🎯 Core Functions
+* Maintain accurate **player records** and achievements.
+* Track **tournament results** and association activities.
+* Access **historical data** for analytics and progress tracking.
+* Strengthen **transparency** and organization across the community.
 
-  <a href="https://youtu.be/V2YdhR1hVNw">
-    <img src="https://i.ytimg.com/vi_webp/V2YdhR1hVNw/maxresdefault.webp" height="380" alt="YouTube Video Preview">
-  </a>
+---
 
-## 🎥 Apple Video
+## 🚀 Key Tech Features
 
-  <a href="https://youtu.be/tqxTijhYhp8">
-    <img src="https://i.ytimg.com/vi_webp/tqxTijhYhp8/maxresdefault.webp" height="380" alt="YouTube Video Preview">
-  </a>
+* ✅ Google Authentication (Sign-Up & Login)
+* ✅ Apple Authentication (iOS & Web)
+* ✅ **BFF Architecture** with Expo API Routes
+* ✅ JWT-based token management (for native apps)
+* ✅ Cookies-based session management (for web)
+* ✅ Cross-platform support (iOS, Android, Web)
+* ✅ Automatic token refresh mechanism
+* ✅ Protected API routes for secure data access
+* ✅ AI-powered Customer Support System
+* ✅ Real-Time Chat System
+* ✅ Server-side email verification with **Node.js + Nodemailer (Google Cloud Run)**
 
-## Prerequisites
+---
 
-- [Google Cloud Console](https://console.cloud.google.com) project with OAuth 2.0 credentials
-- [Apple Developer Account](https://developer.apple.com/account/)
+## 🔑 Authentication Notes
+This project supports **both tokens and cookies** depending on the platform:
 
-## This project supports both Cookies and Tokens
+* **Native (iOS/Android)** → Uses **JWT tokens**
+* **Web** → Uses **Secure HTTP-only cookies**
 
-Using JWT tokens works well for native platforms but isn't ideal for web applications. Using cookies on web has several important advantages:
+### Why Cookies for Web?
+* 🔒 Security: Cannot be accessed by JavaScript (prevents XSS)
+* 📤 Automatic: Sent with every request to your domain
+* 🛡️ CSRF Protection: Works seamlessly with CSRF tokens
+* 🔄 Session Management: Easy to invalidate server-side
+* 💾 No client-side storage: Avoids reliance on `localStorage` or `sessionStorage`
 
-- Security: HTTP-only cookies cannot be accessed by JavaScript, protecting against XSS attacks
-- Automatic inclusion: Cookies are automatically sent with every request to your domain
-- CSRF protection: Can be combined with CSRF tokens for additional security
-- Session management: Easier to invalidate sessions server-side
-- Reduced client-side storage concerns: No need to manage token storage in localStorage/sessionStorage
+The API automatically detects the platform and:
+* Sets a **secure HTTP-only cookie** for web requests
+* Returns a **JWT token** in the response for native requests
 
-The token api detects the platform and handle auth appropriately:
+---
 
-- For web requests, sets the token in a secure http-only cookie
-- For native requests, returns the token in the response
+## ⚙️ Prerequisites
+* A [Google Cloud Console](https://console.cloud.google.com) project with **OAuth 2.0 credentials**
+* An [Apple Developer Account](https://developer.apple.com/account/)
 
-## Authentication Flow
+---
 
-<img width="1268" alt="Shapes Mar 18 11 43" src="https://github.com/user-attachments/assets/3f9d6aeb-d9b0-467d-b194-20d5d0aa7305" />
-
-## Environment Setup
-
-1. Create a `.env.local` file in the root directory with:
+## 🌍 Environment Setup
+Create a `.env.local` file in the root directory:
 
 ```bash
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-JWT_SECRET=your_jwt_secret # use to sign jwt tokens
+JWT_SECRET=your_jwt_secret  # used to sign JWT tokens
 EXPO_PUBLIC_BASE_URL=your_base_url # e.g., http://localhost:8081
 EXPO_PUBLIC_SCHEME=your_app_scheme:// # matches app.json scheme
 
@@ -64,85 +69,76 @@ EXPO_PUBLIC_SCHEME=your_app_scheme:// # matches app.json scheme
 APPLE_CLIENT_SECRET=
 ```
 
-## Get Started
+---
 
-1. Install dependencies
+## ▶️ Get Started
 
-   ```bash
-   bun install
-   ```
-
-2. Run the app
+1. Install dependencies:
 
    ```bash
-   npx expo run:ios
+   npm install
    ```
 
-## Project Structure
+2. Run the app:
 
-- `/app` - Main application code using file-based routing
-- `/app/api` - Backend API routes (BFF)
-  - `/auth` - Authentication endpoints
-  - `/public` - Public endpoints
-  - `/protected` - Protected endpoints requiring JWT
-- `/components` - Reusable React components
-- `/utils` - Utility functions and middleware
+   ```bash
+   npx expo run:ios   # iOS  
+   npx expo run:android   # Android  
+   ```
 
 ---
 
-## 🖇️ Sign in with Apple in Expo (iOS + Web)
+## 📂 Project Structure
 
-This setup supports Sign in with Apple for both iOS (native) and Web using Expo.
+Refer to the file explorer for detailed organization.
 
 ---
 
-## 📱 iOS (Native with `expo-apple-authentication`)
+## 🍏 Apple Sign-In Setup (iOS + Web)
 
-```sh
+### iOS (Native via `expo-apple-authentication`)
+
+Install:
+
+```bash
 npx expo install expo-apple-authentication
 ```
 
-To enable the Sign In with Apple capability in your app, set the `ios.usesAppleSignIn` property to `true` in your project's app config:
+Enable capability in `app.json`:
 
 ```json
 {
   "expo": {
     "ios": {
       "usesAppleSignIn": true
-    }
-  }
-}
-```
-
-Add the plugin:
-
-```json
-{
-  "expo": {
+    },
     "plugins": ["expo-apple-authentication"]
   }
 }
 ```
 
-## 🌐 Web (OAuth via Expo Router API Routes)
+### Web (OAuth via Expo Router API Routes)
 
-## Environment Variables for Apple Sign In
-
-For web-based Apple Sign In, you'll need to generate a client secret. This is a JWT token that your server uses to validate requests with Apple's servers.
-
+For web-based Apple Sign-In:
 1. Visit [Apple Key Generator](https://applekeygen.expo.app)
-2. Enter your Apple Developer Team ID and Bundle Identifier
-3. Generate and copy the client secret
-4. Add it to your `.env` file:
+2. Enter your **Apple Developer Team ID** & **Bundle Identifier**
+3. Generate and copy the **client secret**
+4. Add it to your `.env` file
 
-## Learn More
+---
 
-- [Expo documentation](https://docs.expo.dev/)
-- [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
-- [JWT.io](https://jwt.io/)
-- [Sign in with Apple](https://developer.apple.com/sign-in-with-apple/)
+## 📚 Learn More
+* [Expo Documentation](https://docs.expo.dev/)
+* [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
+* [JWT.io](https://jwt.io/)
+* [Sign in with Apple](https://developer.apple.com/sign-in-with-apple/)
 
-## Community
+---
 
-- [Expo on GitHub](https://github.com/expo/expo)
-- [Expo Discord](https://chat.expo.dev)
+## 👥 Community
+
+* [Expo on GitHub](https://github.com/expo/expo)
+* [Expo Discord](https://chat.expo.dev)
+
+---
+

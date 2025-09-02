@@ -16,6 +16,7 @@ import { BASE_URL } from "@/utils/constants";
 import * as jose from "jose";
 import { handleAppleAuthError } from "@/utils/handleAppleError";
 import { randomUUID } from "expo-crypto";
+import { router } from "expo-router";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -388,6 +389,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   async function handleResponse() {
+    console.log("::1::Finalizing sign-in process");
     // This function is called when Google redirects back to our app
     // The response contains the authorization code that we'll exchange for tokens
     if (response?.type === "success") {
@@ -429,6 +431,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         if (isWeb) {
+          console.log("::2::Finalizing sign-in process");
           // For web: The server sets the tokens in HTTP-only cookies
           // We just need to get the user data from the response
           const userData = await tokenResponse.json();
@@ -457,7 +460,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (e) {
         console.error("Error handling auth response:", e);
       } finally {
-        setIsLoading(false);
+        
+       console.log("::3::Finalizing sign-in process");
+        
+         setIsLoading(false);
+         router.navigate('..');
       }
     } else if (response?.type === "cancel") {
       alert("Sign in cancelled");
