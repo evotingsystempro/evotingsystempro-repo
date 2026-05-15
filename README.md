@@ -1,5 +1,12 @@
 # Smart People App 🧠
 
+## 🌐 Live App
+
+|                   | Link                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| 🚀 **Production** | [smartpeople.expo.app](https://smartpeople.expo.app)                                               |
+| 📊 **Dashboard**  | [Expo Hosting](https://expo.dev/projects/f27f28d0-f2b1-452a-a5ab-22993310ad66/hosting/deployments) |
+
 ## 🎬 App Preview
 
 [![Smart People App - Watch Demo](https://img.youtube.com/vi/qmiu6NlCECE/maxresdefault.jpg)](https://youtube.com/shorts/qmiu6NlCECE)
@@ -42,6 +49,10 @@
 - ✅ Real-Time Chat System
 - ✅ Ethereum Wallet Integration
 - ✅ Server-side email verification with **Node.js + Nodemailer (Google Cloud Run)**
+- ✅ **FCM Push Notifications** — Android & iOS via Firebase Cloud Messaging
+- ✅ **Web Push Notifications** — Browser notifications via VAPID
+- ✅ Broadcast to **all users** or target a **specific user** by ID
+- ✅ Automatic stale token cleanup across Android, iOS & Web
 
 ---
 
