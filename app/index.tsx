@@ -1,91 +1,98 @@
-import React, { useCallback, useContext, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, ActivityIndicator } from "react-native";
+import React, { useContext, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Animated, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useAuth } from "@/context/auth";
-import { ThemedView } from "@/components/ThemedView";
+import { useRouter } from "expo-router";
+import { GlobalContext } from "@/context";
 
 export default function IndexScreen() {
-    //const { user, signIn } = useContext(GlobalContext);
-    const { user, isLoading, signIn } = useAuth();
-    const router = useRouter();
+  const router = useRouter();
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const {
+    isLoading,
+    userId,
+  } = useContext(GlobalContext);
 
-    useEffect(() => {
-        // Fade In + Scale In
-        Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 800,
-                useNativeDriver: true,
-            }),
-            Animated.spring(scaleAnim, {
-                toValue: 1,
-                tension: 15,
-                friction: 1,
-                useNativeDriver: true,
-            }),
-        ]).start();
 
-        const timer = setTimeout(() => {
-            // Fade Out before navigating
-            Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 600,
-                useNativeDriver: true,
-            }).start(({ finished }) => {
-                if (finished) {
-                    if (!isLoading) {
-                       if (!user) {
-                        router.replace("./login");
-                    } else {
-                        router.push("/chat/chat_list");
-                    }
-                    }
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(0.5)).current;
 
-                    
-                }
-            });
-        }, 1200);
+  // ------------------------------------------------
+  // Splash animations & navigation
+  // ------------------------------------------------
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 10,
+        friction: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-        return () => clearTimeout(timer);
-    }, [user]);
+    if (isLoading) return;
 
-    return (
-        <View style={styles.container}>
-            <Animated.View
-                style={[
-                    styles.iconContainer,
-                    {
-                        opacity: fadeAnim,
-                        transform: [{ scale: scaleAnim }],
-                    },
-                ]}
-            >
-                <Ionicons name="shield-checkmark-sharp" size={60} color="white" />
-                <Text style={styles.appName}>Please wait..</Text>
-            </Animated.View>
-        </View>
-    );
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 600,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) return;
+
+      if (!userId) {
+        //  console.log(":::::: No User ::::::");
+        router.replace("/loginHome");
+      } else {
+        // console.log(":::::: User exists xxx ::::::", { userId });
+        router.replace("/chat/welcome");
+      }
+    });
+  }, [isLoading, userId]);
+
+  // ------------------------------------------------
+  // 🧩 UI
+  // ------------------------------------------------
+  return (
+    <View style={styles.container}>
+      <Animated.View
+        style={[
+          styles.iconContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <Ionicons name="shield-checkmark-sharp" size={50} color="#fd8c02ff" />
+        <Text style={styles.appName}>
+          {Platform.OS === "web" ? "Loading App..." : "Loading App..."}
+        </Text>
+      </Animated.View>
+    </View>
+  );
 }
 
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "rgb(9, 151, 80)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    iconContainer: {
-        alignItems: "center",
-    },
-    appName: {
-        color: "white",
-        fontSize: 20,
-        fontWeight: "bold",
-        marginTop: 20,
-        letterSpacing: 1,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: "#eef5f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconContainer: {
+    alignItems: "center",
+  },
+  appName: {
+    color: "#fd8c02ff",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 20,
+    letterSpacing: 1,
+    textAlign: "center",
+  },
 });

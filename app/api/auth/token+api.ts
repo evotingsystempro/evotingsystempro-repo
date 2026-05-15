@@ -48,19 +48,12 @@ export async function POST(request: Request) {
 
   const userInfo = jose.decodeJwt(data.id_token) as object;
 
-  // Create a new object without the exp property from the original token
   const { exp, ...userInfoWithoutExp } = userInfo as any;
-
-  // User id
   const sub = (userInfo as { sub: string }).sub;
-
-  // Current timestamp in seconds
   const issuedAt = Math.floor(Date.now() / 1000);
-
-  // Generate a unique jti (JWT ID) for the refresh token
   const jti = crypto.randomUUID();
 
-  // Create access token (short-lived)
+  // Access token (short-lived)
   const accessToken = await new jose.SignJWT(userInfoWithoutExp)
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime(JWT_EXPIRATION_TIME)
@@ -68,13 +61,11 @@ export async function POST(request: Request) {
     .setIssuedAt(issuedAt)
     .sign(new TextEncoder().encode(JWT_SECRET));
 
-  // Create refresh token (long-lived)
+  // Refresh token (long-lived)
   const refreshToken = await new jose.SignJWT({
     sub,
-    jti, // Include a unique ID for this refresh token
+    jti,
     type: "refresh",
-    // Include all user information in the refresh token
-    // This ensures we have the data when refreshing tokens
     name: (userInfo as any).name,
     email: (userInfo as any).email,
     picture: (userInfo as any).picture,
@@ -95,47 +86,28 @@ export async function POST(request: Request) {
         message:
           "OAuth validation error - please ensure the app complies with Google's OAuth 2.0 policy",
       },
-      {
-        status: 400,
-      }
+      { status: 400 }
     );
   }
 
-  // Handle web platform with cookies
+  // --- Web: set both cookies in one Set-Cookie header ---
   if (platform === "web") {
-    // Create a response with the token in the body
     const response = Response.json({
       success: true,
-      issuedAt: issuedAt,
+      issuedAt,
       expiresAt: issuedAt + COOKIE_MAX_AGE,
     });
 
-    // Set the access token in an HTTP-only cookie
-    response.headers.set(
-      "Set-Cookie",
-      `${COOKIE_NAME}=${accessToken}; Max-Age=${COOKIE_OPTIONS.maxAge}; Path=${
-        COOKIE_OPTIONS.path
-      }; ${COOKIE_OPTIONS.httpOnly ? "HttpOnly;" : ""} ${
-        COOKIE_OPTIONS.secure ? "Secure;" : ""
-      } SameSite=${COOKIE_OPTIONS.sameSite}`
-    );
+    const cookies = [
+      `${COOKIE_NAME}=${accessToken}; Max-Age=${COOKIE_OPTIONS.maxAge}; Path=${COOKIE_OPTIONS.path}; ${COOKIE_OPTIONS.httpOnly ? "HttpOnly;" : ""}${COOKIE_OPTIONS.secure ? " Secure;" : ""}SameSite=None`,
+      `${REFRESH_COOKIE_NAME}=${refreshToken}; Max-Age=${REFRESH_COOKIE_OPTIONS.maxAge}; Path=${REFRESH_COOKIE_OPTIONS.path}; ${REFRESH_COOKIE_OPTIONS.httpOnly ? "HttpOnly;" : ""}${REFRESH_COOKIE_OPTIONS.secure ? " Secure;" : ""}SameSite=None`,
+    ];
 
-    // Set the refresh token in a separate HTTP-only cookie
-    response.headers.append(
-      "Set-Cookie",
-      `${REFRESH_COOKIE_NAME}=${refreshToken}; Max-Age=${
-        REFRESH_COOKIE_OPTIONS.maxAge
-      }; Path=${REFRESH_COOKIE_OPTIONS.path}; ${
-        REFRESH_COOKIE_OPTIONS.httpOnly ? "HttpOnly;" : ""
-      } ${REFRESH_COOKIE_OPTIONS.secure ? "Secure;" : ""} SameSite=${
-        REFRESH_COOKIE_OPTIONS.sameSite
-      }`
-    );
-
+    response.headers.set("Set-Cookie", cookies.join(", "));
     return response;
   }
 
-  // For native platforms, return both tokens in the response body
+  // --- Native: return tokens in response body ---
   return Response.json({
     accessToken,
     refreshToken,

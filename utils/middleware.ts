@@ -1,7 +1,9 @@
 import * as jose from "jose";
 import { COOKIE_NAME, JWT_SECRET } from "@/utils/constants";
+import { Firestore } from "firebase/firestore";
 
 export type AuthUser = {
+  sub(db: Firestore, arg1: string, sub: any): unknown;
   id: string;
   email: string;
   name: string;
@@ -74,7 +76,7 @@ export function withAuth<T extends Response>(
       );
 
       // Call the handler with the authenticated user
-      return await handler(req, decoded.payload as AuthUser);
+      return await handler(req, decoded.payload as unknown as AuthUser);
     } catch (error) {
       if (error instanceof jose.errors.JWTExpired) {
         console.error("Token expired:", error.reason);

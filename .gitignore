@@ -39,3 +39,11 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+.env
+google-services.json
+DATASET/
+google-services.json
+DATASET/
+.env
+google-services.json
+DATASET/

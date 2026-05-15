@@ -1,4 +1,4 @@
-import React, { useContext, useState, useRef, useEffect, useCallback } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,382 +6,383 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  ImageBackground,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Pressable,
-  Animated,
-  useWindowDimensions,
-  Image,
+  Image
 } from "react-native";
-import {
-  MaterialCommunityIcons,
-  Ionicons,
-  AntDesign,
-  FontAwesome,
-  Feather,
-} from "@expo/vector-icons";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebase";
-import { router } from "expo-router";
+import { MaterialCommunityIcons, Ionicons, AntDesign } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/context/auth";
+import ReusableScreen from "@/components/ReusableScreen";
+import { GlobalContext } from "@/context";
+import { doc, getDoc, } from "firebase/firestore";
+import { db } from "@/firebase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { UserStorageKeys } from "@/hooks/storageKeys";
 
 export default function LoginScreen() {
- 
-  const { user, isLoading,signIn } = useAuth();
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [secure, setSecure] = useState(true);
-  let intervalId: string | number | NodeJS.Timeout | undefined;
- const [loading, setLoading] = useState(false); // 👈 new loading state
- const [loadingView, setLoadingView] = useState(true); // 👈 new loading state
-  const { width } = useWindowDimensions();
-  const isWeb = Platform.OS === "web";
-  const contentWidth = isWeb ? Math.min(width, 420) : width;
+  const [loading, setLoading] = useState(false);
 
-  // Fade animation
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const {
+    signIn, isLoading,
+    userId, setTraditionalAuth
+  } = useContext(GlobalContext);
+
+  // --- Auto-navigate if user exists ---
 
   useFocusEffect(
-    React.useCallback(() => {
-      fadeAnim.setValue(1);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, [fadeAnim])
+    useCallback(() => {
+      if (userId) router.replace("/");
+    }, [userId])
   );
 
-  // Helper: fade out before navigating
-  const fadeOutAndNavigate = (path: any) => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+  const signInHandle = async () => {
+    setLoading(true);
+    try {
+      await signIn();
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // LOGIN
-  const handleLogin = async () => {
-    setError("Logging in...");
-    if (email.trim() === "" || password.trim() === "") {
-      setError("Please fill in all fields.");
+  const loginHandler = async () => {
+    if (loading) return;
+
+    if (!email || !password) {
+      setError("Email and password are required");
       return;
     }
+
     setLoading(true);
+    setError("");
+
+    try {
+      const emailKey = email.trim().toLowerCase();
+      const userRef = doc(db, "members_list_db", emailKey);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        setError("Account not found");
+        return;
+      }
+
+      const userData = userSnap.data();
+
+      if (userData.userPassword !== password) {
+        setError("Invalid email / password");
+        return;
+      }
+      setError("Sucess!");
+      const userObj = {
+        email: emailKey,
+        name: userData.clientName ?? "",
+        password,
+        picture: userData.picture ?? null,
+      };
+      setTraditionalAuth(userObj)
+
+      const savedUserCredentials = async () => {
+        try {
+          if (Platform.OS === "web") {
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(UserStorageKeys.savedUserCredentials(), JSON.stringify(userObj));
+            }
+          } else {
+            await AsyncStorage.setItem(UserStorageKeys.savedUserCredentials(), JSON.stringify(userObj));
+          }
+        } catch (storageError) {
+          console.error("Error saving user credentials:", storageError);
+        }
+      };
+      savedUserCredentials();
+
+      //Navigate
+      router.replace("/");
+
+      //Web hard refresh (optional)
+      if (Platform.OS === "web") {
+        setTimeout(() => {
+          window.location.replace("/");
+        }, 50);
+      }
+
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-   useFocusEffect(
-    useCallback(() => {
-      setLoadingView(false)
-    }, [])
-  );
 
-   useFocusEffect(
-    useCallback(() => {
-      if(user?.name){
-        console.log(":::::user in login",user)
-          router.push("/chat/chat_list");
-      }
-    }, [user?.name])
-  );
 
-  const signInHandle=()=>{
-     setLoadingView(true)
-    signIn();
+  if (isLoading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#F97316" />
+      </View>
+    );
   }
 
   return (
-    
-    <View style={styles.outer}>
-    { loadingView == true? 
-    (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#fff",
-          alignItems: "center",
-          justifyContent: "center",position:"absolute",zIndex:1,width:"100%",height:"100%"
-        }}
+    <ReusableScreen>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ActivityIndicator size="large" color="#099750" />
-        <Text style={{ marginTop: 12, fontSize: 16, color: "#099750" }}>
-          Loading...
-        </Text>
-      </View>
-    ):""
-  }
-      <Animated.View style={[styles.container, { opacity: fadeAnim, width: contentWidth }]}>
-        <View style={styles.safeArea}>
-          <ImageBackground
-            source={require("../assets/backgroundImages/l.jpg")}
-            style={styles.background}
-            blurRadius={0}
-          >
-            <KeyboardAvoidingView
-              style={{ flex: 1 }}
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Image source={require("@/assets/images/SMART_PEOPLE_LOGO.png")} style={styles.logo} />
+
+            <View>
+              <Text style={styles.appTitle}>Smart People</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 5, alignItems: "baseline" }}>
+              <MaterialCommunityIcons name="signal-cellular-3" size={25} color="#f69502ff" />
+              <Text style={styles.subtitle}>Sign In</Text>
+            </View>
+
+          </View>
+
+          {/* INPUTS */}
+          <View style={styles.formContainer}>
+            <View style={[styles.inputWrapper]}>
+              <MaterialCommunityIcons
+                name="email-outline"
+                size={22}
+                color="#9CA3AF"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                maxLength={30}
+              />
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons name="lock-outline" size={22} color="#9CA3AF" />
+
+              <TextInput
+                style={[styles.input, { paddingRight: 45 }]} // reserve space
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry={secure}
+                value={password}
+                onChangeText={setPassword}
+                maxLength={30}
+              />
+
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setSecure(!secure)}
+              >
+                <Ionicons
+                  name={secure ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+            </View>
+
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* LOGIN BUTTON */}
+            <TouchableOpacity
+              style={[styles.loginButton, loading && { opacity: 0.7 }]}
+              onPress={loginHandler}
+              disabled={loading}
             >
-              <ScrollView contentContainerStyle={styles.innerContainer}>
- 
-                <View style={{ paddingHorizontal: 20 }}>
-                  {/* Logo */}
-                  <View style={{ alignItems: "center", marginBottom: 70 }}>
-                    <View style={styles.iconContainer}>
-                      <Image
-                        source={require("../assets/images/vrdraughtlogo.png")}
-                        style={{ width: 90, height: 90, resizeMode: "contain" }}
-                      />
-                    </View>
-                  </View>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginText}>Login</Text>}
+            </TouchableOpacity>
 
-                  {/* App name */}
-                  <Text style={styles.appName}>VR-Draught</Text>
-                  <Text style={styles.title}>Login</Text>
+            {/* REGISTER LINK */}
+            <View style={styles.inlineContainer}>
+              <Text style={styles.subText}>Don’t have an account?</Text>
+              <TouchableOpacity onPress={() => router.navigate("./register")}>
+                <Text style={styles.link}>Register</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-                  {/* Register link */}
-                  <View style={styles.inlineContainer}>
-                    <Text style={styles.subText}>Not registered yet?</Text>
-                    <Pressable
-                      style={styles.linkButton}
-                      onPress={() => fadeOutAndNavigate("./register")}
-                    >
-                      <Text style={styles.link}>Register</Text>
-                    </Pressable>
-                  </View>
+          {/* SOCIAL LOGIN */}
 
-                  {/* Email */}
-                  <View style={styles.inputWrapper}>
-                    <MaterialCommunityIcons
-                      name="email-outline"
-                      size={20}
-                      color="#999"
-                      style={styles.icon}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Email"
-                      placeholderTextColor="#aaa"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={email}
-                      onChangeText={setEmail}
-                    />
-                  </View>
+          <View style={styles.socialSection}>
 
-                  {/* Password */}
-                  <View style={styles.inputWrapper}>
-                    <MaterialCommunityIcons
-                      name="lock-outline"
-                      size={20}
-                      color="#999"
-                      style={styles.icon}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Password"
-                      placeholderTextColor="#aaa"
-                      secureTextEntry={secure}
-                      value={password}
-                      onChangeText={setPassword}
-                    />
-                    <TouchableOpacity onPress={() => setSecure(!secure)}>
-                      <Ionicons
-                        name={secure ? "eye-off-outline" : "eye-outline"}
-                        size={20}
-                        color="#999"
-                      />
-                    </TouchableOpacity>
-                  </View>
+            <Text style={styles.orText}>Or</Text>
 
-                  {/* Error */}
-                  {error ? (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  ) : null}
+            {/*  <View style={styles.socialRow}>
+              <TouchableOpacity onPress={signInHandle} style={styles.socialButton}>
+                <Text style={styles.socialLetter}>G</Text>
+              </TouchableOpacity>
 
-                  {/* Login button */}
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={handleLogin}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.loginText}>Login</Text>
-                    )}
-                  </TouchableOpacity>
+              <TouchableOpacity onPress={signInHandle} style={styles.socialButton}>
+                <Text style={styles.socialLetterFacebook}>f</Text>
+              </TouchableOpacity>
 
-                  {/* Social login */}
-                  <Text style={styles.orText}>
-                "Or Login with"
-                  </Text>
+              <TouchableOpacity onPress={signInHandle} style={styles.socialButton}>
+                <AntDesign name="apple1" size={24} color="#000" />
+              </TouchableOpacity>
+            </View> */}
 
-                  <View style={{ flexDirection: "row", alignSelf: "center" }}>
-                    <TouchableOpacity
-                      onPress={signInHandle}
-                      style={styles.socialButton}
-                    >
-                      <AntDesign name="google" size={28} color="#DB4437" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton}>
-                      <FontAwesome
-                        name="facebook-square"
-                        size={28}
-                        color="#1877F2"
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton}>
-                      
-                      <AntDesign name="apple1" size={28} color="#000" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+            <View style={styles.socialRow}>
+              <TouchableOpacity onPress={signInHandle} style={styles.socialButton}>
+                <Image source={require("@/assets/images/google-icon.png")} style={styles.logoGoogle} /><Text style={{ fontSize: 16, color: "#000", fontWeight: "700" }}>Continue with Google</Text>
+              </TouchableOpacity>
+            </View>
 
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </ImageBackground>
-        </View>
-      </Animated.View>
-    </View>
-    
+            <View style={styles.footerSection}>
+              <Text style={styles.footerText}>© 2025 SmartPeople</Text>
+
+              <TouchableOpacity
+                onPress={() => router.push("./PrivacyPolicy&TermsOfUse")}
+              >
+                <Text style={styles.termsAndConditions}>
+                  Terms and Conditions Apply
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ReusableScreen>
   );
-  
 }
 
 const styles = StyleSheet.create({
-  outer: {
-    flex: 1,
-    alignItems: "center", // centers the mobile container on web
-    backgroundColor: "#f2f2f2", // light gray like WhatsApp web
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#000", // ensures background works well with image overlay
-    maxWidth: 420, // lock to phone width
-    justifyContent: "flex-start",
-  },
-  safeArea: { flex: 1 },
-  background: {
-    flex: 1,
-    width: "100%", // ✅ span full screen
-    height: "100%",
-
-  },
-  innerContainer: { flexGrow: 1, justifyContent: "center" },
-  appName: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 5,
-    color: "#fff",
-    textAlign: "center",
-  },
-  inlineContainer: {
-    flexDirection: "row",
-    marginBottom: 15,
-    justifyContent: "center",
-  },
-  subText: { fontSize: 16, color: "#fff" },
-  link: {
-    color: "#FFEB3B",
-    fontWeight: "bold",
-    marginLeft: 6,
-    textDecorationLine: "underline",
-  },
-  linkButton: { paddingHorizontal: 4 },
+  container: { flexGrow: 1, justifyContent: "center", padding: 20, backgroundColor: "#faf2e6ff" },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  header: { alignItems: "center", marginBottom: 5, gap: 10 },
+  logo: { width: 70, height: 70 },
+  logoGoogle: { width: 25, height: 25 },
+  appTitle: { fontSize: 25, fontWeight: "800", color: "#F97316", marginTop: 10 },
+  subtitle: { fontSize: 22, color: "#f69502ff", fontWeight: "800" },
+  formContainer: { marginVertical: 20, marginHorizontal: 5, },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 25,
+    backgroundColor: "#fff",
+    borderRadius: 12,
     paddingHorizontal: 15,
-    marginHorizontal: 20,
-    marginBottom: 15,
-    height: 45,
+    paddingVertical: 3,
+    borderWidth: 1.5,
+    borderColor: "#f7d6b0ff",
+    marginBottom: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
-  icon: { marginRight: 10 },
-  input: { flex: 1, paddingVertical: 12 },
-  errorContainer: { alignSelf: "center", marginBottom: 10 },
-  errorText: { color: "yellow", fontSize: 16, fontWeight: "600" },
-  loginButton: {
-    backgroundColor: "green",
-    paddingVertical: 15,
-    marginHorizontal: 20,
-    borderRadius: 25,
-    alignItems: "center",
-    marginBottom: 15,
+  input: {
+    flex: 1, fontSize: 18, paddingHorizontal: 10,
+    paddingVertical: 10,
+    ...(Platform.OS === "web" && {
+      outlineStyle: "none",
+      outlineWidth: 0,
+      boxShadow: "none",
+    }),
+    color: "#111827",
   },
-  loginText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  eyeButton: {
+    position: "absolute",
+    right: 15,
+    height: "100%",
+    justifyContent: "center",
+  },
+
+  errorText: { color: "#FF3B30", textAlign: "center", marginBottom: 10 },
+  loginButton: { backgroundColor: "#f5931bff", paddingVertical: 13, borderRadius: 10, alignItems: "center", marginBottom: 10, marginTop: 10 },
+  loginText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  inlineContainer: { flexDirection: "row", justifyContent: "center", marginTop: 10, alignItems: "center" },
+  subText: { fontSize: 17, marginRight: 5 },
+  link: { fontSize: 18, color: "#F97316", fontWeight: "bold" },
+
+
+  socialSection: {
+    // marginTop: 28,
+  },
   orText: {
     textAlign: "center",
-    fontWeight: "700",
-    marginBottom: 15,
+    color: "#78350F",
     fontSize: 18,
-    color: "#ffe600ff",
-  },
-  socialButton: {
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 50,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    marginHorizontal: 5,
-  },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    backgroundColor: "rgba(255, 255, 255, 0.17)",
-    borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Welcome screen styles
-  welcomeContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  welcomeTitle: {
-    fontSize: 32,
-    color: "white",
-    fontWeight: "bold",
-    marginTop: 30,
+    fontWeight: "800",
     marginBottom: 10,
   },
-  welcomeSubtitle: {
-    marginHorizontal: 30,
-    fontSize: 19,
-    lineHeight: 32,
-    color: "white",
-    fontStyle: "italic",
+
+  socialRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 22,
+  },
+
+  socialButton: {
+    borderRadius: 50,
+    paddingHorizontal: 30,
+    paddingVertical: 13,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#f9e0c2ff",
+    flexDirection: "row",
+    gap: 6,
+
+    // iOS shadow
+    shadowColor: "#8b8c8cff",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 3, height: 2 },
+    shadowRadius: 2,
+
+    // Android shadow
+    elevation: 5,
+  },
+
+
+  socialLetter: {
+    fontSize: 29,
+    fontWeight: "800",
+    color: "#DB4437", // Google
+  },
+
+  socialLetterFacebook: {
+    fontSize: 29,
+    fontWeight: "800",
+    color: "#1877F2",
+  },
+
+  footerSection: {
+    alignItems: "center",
+  },
+
+  termsAndConditions: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F97316",
+  },
+
+
+  footerText: {
     textAlign: "center",
-    marginBottom: 40,
+    color: "#78350F",
+    fontSize: 13,
+    marginTop: 4,
   },
-  continueButton: {
-    backgroundColor: "green",
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 30,
-    shadowColor: "yellow",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 10,
-  },
-  continueText: { color: "white", fontSize: 18, fontWeight: "bold" },
 });

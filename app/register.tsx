@@ -1,33 +1,53 @@
-import React, { useState, useEffect } from "react";
+//register.tsx
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
-  ImageBackground,
+  Platform,
+  Image,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import {
+  MaterialCommunityIcons,
+  Ionicons,
+  AntDesign,
+} from "@expo/vector-icons";
+import ReusableScreen from "@/components/ReusableScreen";
+import { GlobalContext } from "@/context";
 
-//const SERVER_URL = "http://172.20.135.68:8080";
-const SERVER_URL = "https://email-service-405496305969.us-central1.run.app";
+//const SERVER_URL = "http://10.15.20.68:8080";
+const SERVER_URL = "https://email-service-376826674474.us-central1.run.app";
+
 export default function RegisterScreen() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [secure, setSecure] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Reset error/success when user types
+  const {
+    signIn, userName
+  } = useContext(GlobalContext);
+
+  /** Redirect if logged in */
+  useFocusEffect(
+    useCallback(() => {
+      if (userName) router.replace("/");
+    }, [userName])
+  );
+
+  // DO NOT TOUCH LOGIC
   useEffect(() => {
     if (error || success) {
       setError("");
@@ -42,14 +62,40 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
+    /*  try {
+          const res = await fetch(`${SERVER_URL}/send-code`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password }),
+          });
+          const data = await res.json();
+    
+          if (res.ok && data.success) {
+            setSuccess("Verification code sent!");
+            router.replace({
+              pathname: "./VerificationScreen",
+              params: { username, email, password },
+            });
+          } else {
+            setError(data.error || "Failed to send code");
+          }
+        } catch {
+          setError("Network error, please try again");
+        } finally {
+          setLoading(false);
+        } */
+
     try {
       const res = await fetch(`${SERVER_URL}/send-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
       });
-      const data = await res.json();
 
+      const text = await res.text(); // read raw response
+      console.log("Raw response:", text);
+
+      const data = JSON.parse(text); // parse manually
       if (res.ok && data.success) {
         setSuccess("Verification code sent!");
         router.replace({
@@ -59,167 +105,356 @@ export default function RegisterScreen() {
       } else {
         setError(data.error || "Failed to send code");
       }
-    } catch {
-      setError("Network error, please try again");
+    } catch (err) {
+      console.log("Fetch error:", err);
+      setError("Network error, you may use the google sign-in option");
+    } finally {
+      setLoading(false);
+    }
+
+  };
+
+  const signInHandle = async () => {
+    setLoading(true);
+    try {
+      await signIn();
+    } catch (err: any) {
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ImageBackground
-      source={require('../assets/backgroundImages/l.jpg')}
-      style={styles.background}
-      blurRadius={0}
-    >
+    <ReusableScreen>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="pulse-outline" size={40} color="white" />
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* HEADER */}
+          <View style={{ alignItems: "center", marginBottom: 15, }}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/SMART_PEOPLE_LOGO.png")}
+                style={{ width: 65, height: 65 }}
+              />
             </View>
-            <Text style={styles.appName}>VR-Draught</Text>
+            <View style={{ marginBottom: 15 }}>
+              <Text style={styles.appTitle}>Smart People</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 5, alignItems: "center" }}>
+              <MaterialCommunityIcons name="account-circle" size={35} color="#f69502ff" />
+              <Text style={styles.subtitle}>Create your account</Text>
+            </View>
           </View>
 
-          {/* Register Title */}
-          <Text style={styles.title}>Register</Text>
+          {/* FORM */}
+          <View style={styles.formContainer}>
+            {/* Username */}
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="account-outline"
+                size={22}
+                color="#9CA3AF"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor="#9CA3AF"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                maxLength={30}
+              />
+            </View>
 
-          {/* Username Input */}
-          <View style={styles.inputWrapper}>
-            <Ionicons name="person-outline" size={20} color="#666" />
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-            />
-          </View>
+            {/* Email */}
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="email-outline"
+                size={22}
+                color="#9CA3AF"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                maxLength={30}
+              />
+            </View>
 
-          {/* Email Input */}
-          <View style={styles.inputWrapper}>
-            <Ionicons name="mail-outline" size={20} color="#666" />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
+            {/* Password */}
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="lock-outline"
+                size={22}
+                color="#9CA3AF"
+              />
 
-          {/* Password Input */}
-          <View style={styles.inputWrapper}>
-            <Ionicons name="lock-closed-outline" size={20} color="#666" />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
+              <TextInput
+                style={[styles.input, { paddingRight: 45 }]} // reserve space
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry={secure}
+                value={password}
+                onChangeText={setPassword}
+                maxLength={30}
+              />
 
-          {/* Register Button */}
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={sendCode}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Register</Text>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setSecure(!secure)}
+              >
+                <Ionicons
+                  name={secure ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+            </View>
 
-          {/* Error / Success Messages */}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {success ? <Text style={styles.success}>{success}</Text> : null}
 
-          {/* Login Link */}
-          <TouchableOpacity style={{ marginTop: 20 }}>
-            <Text
-              style={styles.loginText}
-              onPress={() => { { } }}
+            {/* Messages */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {success ? <Text style={styles.successText}>{success}</Text> : null}
+
+            {/* REGISTER BUTTON */}
+            <TouchableOpacity
+              style={[styles.registerButton, loading && { opacity: 0.7 }]}
+              onPress={sendCode}
+              disabled={loading}
             >
-              Already registered? Login here
-            </Text>
-          </TouchableOpacity>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.registerText}>Register</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* LOGIN LINK */}
+            <View style={styles.inlineContainer}>
+              <Text style={styles.subText}>Already have an account?</Text>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text style={styles.link}>Login</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.socialSection}>
+              <Text style={styles.orText}>Or</Text>
+
+              <View style={styles.socialRow}>
+                <TouchableOpacity onPress={signInHandle} style={styles.socialButton}>
+                  <Image source={require("@/assets/images/google-icon.png")} style={styles.logoGoogle} /><Text style={{ fontSize: 16, color: "#000", fontWeight: "700" }}>Continue with Google</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.footerSection}>
+                <Text style={styles.footerText}>© 2025 SmartPeople</Text>
+
+                <TouchableOpacity
+                  onPress={() => router.push("./PrivacyPolicy&TermsOfUse")}
+                >
+                  <Text style={styles.termsAndConditions}>
+                    Terms and Conditions Apply
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+          </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </ReusableScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: "cover",
-  },
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
+    padding: 24,
+    backgroundColor: "#faf2e6ff",
   },
+
+  logoGoogle: { width: 25, height: 25 },
   logoContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    shadowColor: "orange",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 4,
+    elevation: 4,
   },
-  appName: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "white",
+  appTitle: {
+    fontSize: 25,
+    fontWeight: "800",
+    color: "#F97316",
+    marginTop: 15,
   },
-  title: {
+  subtitle: {
+    color: "#f69502ff",
     fontSize: 20,
-    fontWeight: "bold",
-    color: "white",
-    marginBottom: 20,
-    textAlign: "center",
+    marginTop: 4,
+    textAlign: "center", fontWeight: "800"
+  },
+  formContainer: {
+    marginHorizontal: 5,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 25,
+    backgroundColor: "#fff",
+    borderRadius: 12,
     paddingHorizontal: 15,
-    marginHorizontal: 20,
-    marginBottom: 15,
-    height: 45,
+    paddingVertical: 3,
+    borderWidth: 1.5,
+    borderColor: "#f7d6b0ff",
+    marginBottom: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   input: {
     flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
+    marginRight: 5, fontSize: 18, paddingLeft: 10, paddingVertical: 10,
+
+
+    ...(Platform.OS === "web" && {
+      outlineStyle: "none",
+      outlineWidth: 0,
+      boxShadow: "none",
+    }),
+    color: "#111827",
   },
-  button: {
-    backgroundColor: "#08bb34ff",marginHorizontal: 20,
-    paddingVertical: 13,
-    borderRadius: 25,
-    alignItems: "center",
+  errorText: {
+    color: "#DC2626",
+    textAlign: "center",
     marginBottom: 10,
+    fontWeight: "600",
+    fontSize: 15,
+    width: "80%",
+    alignSelf: "center",
   },
-  buttonDisabled: { backgroundColor: "#999", },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  error: { color: "yellow", marginTop: 10, textAlign: "center" },
-  success: { color: "green", marginTop: 10, textAlign: "center" },
-  loginText: { color: "#FFD700", textAlign: "center", fontSize: 16 },
+  successText: {
+    color: "#16A34A",
+    textAlign: "center",
+    marginBottom: 10,
+    fontWeight: "600",
+  },
+  registerButton: {
+    backgroundColor: "#f5931bff",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+    shadowColor: "#EA580C",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  registerText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 18,
+  },
+  inlineContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 15, alignItems: "center"
+  },
+  subText: { fontSize: 17, color: "#78350F" },
+  link: {
+    color: "#F97316",
+    fontWeight: "700",
+    marginLeft: 6, fontSize: 18,
+  },
+  footerText: {
+    textAlign: "center",
+    color: "#78350F",
+    fontSize: 13,
+    marginTop: 4,
+  },
+
+  socialSection: {
+    marginTop: 10,
+  },
+
+  orText: {
+    textAlign: "center",
+    color: "#78350F",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 14,
+  },
+
+  socialRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 22,
+  },
+
+  socialButton: {
+    borderRadius: 50,
+    paddingHorizontal: 30,
+    paddingVertical: 13,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#f9e0c2ff",
+    flexDirection: "row",
+    gap: 6,
+
+    // iOS shadow
+    shadowColor: "#8b8c8cff",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 3, height: 2 },
+    shadowRadius: 2,
+
+    // Android shadow
+    elevation: 5,
+  },
+
+
+  socialLetter: {
+    fontSize: 29,
+    fontWeight: "800",
+    color: "#DB4437", // Google
+  },
+
+  socialLetterFacebook: {
+    fontSize: 29,
+    fontWeight: "800",
+    color: "#1877F2",
+  },
+
+  footerSection: {
+    alignItems: "center",
+    marginTop: 6,
+  },
+
+  termsAndConditions: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F97316",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 15,
+    height: "100%",
+    justifyContent: "center",
+  },
+
+
 });

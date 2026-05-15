@@ -1,154 +1,143 @@
+// RootLayout.tsx
+
+import "react-native-gesture-handler"; // ✅ MUST be first
+import "react-native-reanimated";
+
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { useEffect } from "react";
-//import { GlobalState } from "@/context/auth";
-import { Platform, TouchableOpacity, View, Text } from "react-native";
+import React, { useEffect, useCallback } from "react";
+import { Platform } from "react-native";
+
 import { AuthProvider } from "@/context/auth";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import { UserName } from "@/components/userName";
- //const { user, isLoading } = useAuth();
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import GlobalState from "@/context";
+import { MenuProvider } from "react-native-popup-menu";
+
+import { useFonts, Inter_400Regular } from "@expo-google-fonts/inter";
+
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router";
+
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ProfileCompletionProvider } from "@/components/CompleteProfileModal";
+
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    Inter: Inter_400Regular,
+  });
+
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
-    SplashScreen.hideAsync();
+    console.log("🔔 Notification listener mounted");
+
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        console.log("📩 Notification received:", response);
+
+        const data = response.notification.request.content.data;
+
+        console.log("📦 Extracted data:", data);
+
+        if (data?.screen) {
+          const params = {
+            commentId: data.commentId,
+            clientName: data.clientName || "",
+            clientIconUri: data.clientIconUri || "",
+            clientEmail: data.clientEmail || "",
+          };
+
+          console.log("➡️ Navigating to:", data.screen);
+          console.log("📨 Navigation params:", params);
+
+          router.push({
+            pathname: data.screen,
+            params,
+          });
+        } else {
+          console.warn("⚠️ No screen provided in notification data");
+        }
+      }
+    );
+
+    return () => {
+      console.log("❌ Notification listener removed");
+      sub.remove();
+    };
   }, []);
 
-  
+  if (!fontsLoaded) return null;
+
   return (
-    <AuthProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShadowVisible: true,
-            animation: "flip",
-            headerTitle: "",
-            headerStyle: {},
-            headerTitleStyle: { color: "#099750c7", fontSize: 18, fontWeight: "700" },
-            statusBarBackgroundColor: "#099750c7",
-            headerTintColor: "#099750c7",
-            navigationBarColor: '#e6f7e6',
-            headerBackTitle: "yccxxyy",
-            title: "tttt",
-            headerRight: () => (
-              <View>
-                <View style={{ position: "relative", right: Platform.OS === 'ios' ? 30 : 0, alignItems: "center", width: Platform.OS === 'ios' ? "100%" : "100%", }}>
-                  <TouchableOpacity>
-                    <></>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ),
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerTitle: "", headerShown: false, navigationBarColor: '#e6f7e6', }} />
-          <Stack.Screen name="VerificationScreen" options={{ headerTitle: "", headerShown: false, navigationBarColor: '#069245d8' }} />
-          <Stack.Screen name="register" options={{ headerTitle: "", headerShown: false, navigationBarColor: '#069245d8' }} />
-          <Stack.Screen name="login" options={{ headerTitle: "Login", headerShown: false, navigationBarHidden: true }} />
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <AuthProvider>
+        <GlobalState>
+          <MenuProvider>
+            <ProfileCompletionProvider>
+              {/* ✅ Orange status bar with white time/icons. translucent=false
+                    ensures the colour fills the bar rather than bleeding through. */}
+              <StatusBar
+                style="light"
+                backgroundColor="#f98304"
+                translucent={false}
+              />
 
-          <Stack.Screen name="chat/chat_room"
-            options={{
-              headerTitle: "Chat Room", navigationBarColor: '#fff',headerShown: false,
-              headerRight: () => (
-                <TouchableOpacity>
-                  <View>
-                    <></>
-                  </View>
-                </TouchableOpacity>
-              ),
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  headerShadowVisible: true,
+                  animation: "none",
+                  headerTitle: "",
+                  headerTitleStyle: {
+                    color: "#fff",
+                    fontSize: 18,
+                    fontWeight: "700",
+                  },
+                  statusBarBackgroundColor: "#f98304",
+                  statusBarStyle: "light",
+                  headerTintColor: "#fff",
+                  navigationBarColor: "#fff",
+                }}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="loginHome" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/welcome" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="register" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/members_list" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/comments" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/buy_reset_credit_screen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/admin_reset_credit_transaction_screen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/UserTransactionScreen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/user_violation_screen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/profile" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/pickTopic" options={{ headerShown: false, }} />
+                <Stack.Screen name="chat/quiz" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/userChatMessages" options={{ headerShown: false }} />
+                <Stack.Screen name="PrivacyPolicy&TermsOfUse" options={{ headerShown: false }} />
+              </Stack>
 
-            }} />
-
-          <Stack.Screen name="chat/chat_list"
-            options={{
-              headerTitle: "", 
-              navigationBarColor: '#fff',
-              headerShown: Platform.OS === "web"? false : true,
-              headerLeft: () => (
-                <View style={{ flexDirection: "row" }}>
-                  <TouchableOpacity
-                    style={{ paddingRight: 5, flexDirection: "row" }}
-                  >
-                    <View>
-                      <Text
-                        style={{ fontSize: 18, color: "#099750ff", fontWeight: "800" }}
-                      >
-                        VR-Druaght
-                      </Text>
-                      <Text
-                        style={{ fontSize: 13, color: "#099750ff", fontWeight: "600" }}
-                      >
-                        Association
-                      </Text>
-                    </View>
-                  </TouchableOpacity></View>
-
-              ),
-              headerRight: () => (
-                <View>
-                  
-                  <TouchableOpacity style={{ flexDirection: "row", alignItems: "center",}}>
-                  <AntDesign name="link" size={20} color="#666" />
-                  <UserName />
-                </TouchableOpacity>
-               
-                </View>
-              ),
-
-            }} />
-          {/*
-
-        const user:any = auth.currentUser;
-   let userName =user.displayName = user.displayName || 'Anonymous';
-
-          <Stack.Screen
-            name="medications/add"
-            options={{
-              headerShown: false,
-              headerBackTitle: "",
-              title: "",
-            }}
-          />
-  
-          <Stack.Screen
-            name="refills/index"
-            options={{
-              headerShown: false,
-              headerBackTitle: "",
-              title: "",
-            }}
-          />
-          <Stack.Screen
-            name="calendar/index"
-            options={{
-              headerShown: false,
-              headerBackTitle: "",
-              title: "",
-            }}
-          />
-          <Stack.Screen
-            name="history/index"
-            options={{
-              headerShown: false,
-              headerBackTitle: "",
-              title: "",
-            }}
-          /> */}
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AuthProvider>
+            </ProfileCompletionProvider>
+          </MenuProvider>
+        </GlobalState>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
