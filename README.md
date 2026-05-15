@@ -1,5 +1,13 @@
 # Smart People App 🧠
 
+## 🎬 App Preview
+
+[![Smart People App - Watch Demo](https://img.youtube.com/vi/qmiu6NlCECE/maxresdefault.jpg)](https://youtube.com/shorts/qmiu6NlCECE)
+
+> 👆 Click to watch the Smart People App in action!
+
+---
+
 ### 📌 Project Overview
 
 **Smart People** is an AI-powered, cross-platform mobile and web application built to connect people through knowledge, real-time interaction, and gamified learning. It combines live chat, quizzes, scoreboards, wallet/credit systems, and AI-powered support into a seamless experience across iOS, Android, and Web.
