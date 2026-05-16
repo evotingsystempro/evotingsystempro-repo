@@ -89,8 +89,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AuthProvider>
         <GlobalState>
-          <MenuProvider>
-            <ProfileCompletionProvider>
+          {/* ✅ Moved inside GlobalState so userId from GlobalContext is available */}
+          <ProfileCompletionProvider>
+            <MenuProvider>
               {/* ✅ Orange status bar with white time/icons. translucent=false
                     ensures the colour fills the bar rather than bleeding through. */}
               <StatusBar
@@ -134,8 +135,8 @@ export default function RootLayout() {
                 <Stack.Screen name="PrivacyPolicy&TermsOfUse" options={{ headerShown: false }} />
               </Stack>
 
-            </ProfileCompletionProvider>
-          </MenuProvider>
+            </MenuProvider>
+          </ProfileCompletionProvider>
         </GlobalState>
       </AuthProvider>
     </GestureHandlerRootView>

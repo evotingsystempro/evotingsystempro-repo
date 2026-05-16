@@ -47,8 +47,9 @@ import ChatBanner from "@/components/ChatBanner";
 import * as Device from "expo-device";
 import * as Application from "expo-application";
 import { MenuProvider } from "react-native-popup-menu";
-import { useProfileCompletion } from "@/components/CompleteProfileModal";
+//import { useProfileCompletion } from "@/components/CompleteProfileModal";
 import { useChatListListener } from "@/hooks/useChatListListener";
+import { useProfileCompletion, CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1205,9 +1206,19 @@ export default function MembersList() {
   }, [userId, deviceId, isConnectedNET]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const timer = setTimeout(() => requireComplete(), 5000);
+    if (!userId) return;
+
+    const timer = setTimeout(async () => {
+      const alreadySkipped = await AsyncStorage.getItem(SKIP_KEY(userId));
+      const alreadyComplete = await AsyncStorage.getItem(CACHE_KEY(userId));
+
+      if (!alreadySkipped && !alreadyComplete) {
+        requireComplete();
+      }
+    }, 5000);
+
     return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const visibleMembers = useMemo<MemberItem[]>(() => {
     if (!members?.length) return [];

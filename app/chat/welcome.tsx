@@ -30,12 +30,13 @@ import ChatBanner from "@/components/ChatBanner";
 import { useAuth } from "@/context/auth";
 import * as Updates from "expo-updates";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileModal";
+//import { CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileScreen";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Constants                                                                  */
 /* ─────────────────────────────────────────────────────────────────────────── */
 const FP_CACHE_KEY = "device_fp_cache";
-
 const PASSWORD = "NoPassword1234";
 
 const sanitizeEmail = (email: string) =>
@@ -73,26 +74,215 @@ const StatBadge = ({ label, value, color }: StatBadgeProps) => (
 );
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/*  "Almost There" nudge card                                                  */
+/* ─────────────────────────────────────────────────────────────────────────── */
+const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+  <View>
+    {/* ── Card (no button inside) ── */}
+    <View style={atc.card}>
+      <View style={atc.stripe} />
+
+      <View style={atc.body}>
+        <View style={atc.iconWrap}>
+          <View style={atc.iconRing}>
+            <Ionicons name="person-circle-outline" size={42} color="#F97316" />
+          </View>
+          <View style={atc.badge}>
+            <Ionicons name="alert" size={11} color="#fff" />
+          </View>
+        </View>
+
+        <Text style={atc.heading}>Almost There! 🎯</Text>
+        <Text style={atc.sub}>
+          Complete your profile to unlock all features and start earning rewards.
+        </Text>
+
+        <View style={atc.chips}>
+          <View style={[atc.chip, atc.chipDone]}>
+            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+            <Text style={[atc.chipText, { color: "#065F46" }]}>Account created</Text>
+          </View>
+          <View style={[atc.chip, atc.chipPending]}>
+            <Ionicons name="ellipse-outline" size={13} color="#F97316" />
+            <Text style={[atc.chipText, { color: "#9A3412" }]}>Profile details</Text>
+          </View>
+        </View>
+
+        <Text style={atc.footer}>
+          🔒 Takes less than a minute · Your data stays private
+        </Text>
+      </View>
+    </View>
+
+    {/* ── CTA button — outside the card border ── */}
+    <TouchableOpacity style={atc.btn} onPress={onPress} activeOpacity={0.85}>
+      <Ionicons
+        name="arrow-forward-circle-outline"
+        size={22}
+        color="#fff"
+        style={{ marginRight: 6 }}
+      />
+      <Text style={atc.btnText}>Complete Profile Now</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+const atc = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#FED7AA",
+    backgroundColor: "#fff",
+    overflow: "hidden",
+    ...(Platform.OS === "web" && ({
+      boxShadow: "0 4px 20px rgba(249,115,22,0.10)",
+    } as any)),
+  },
+  stripe: {
+    height: 4,
+    backgroundColor: "#F97316",
+    borderRadius: 2,
+  },
+  body: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+  },
+  iconWrap: { position: "relative", marginBottom: 12 },
+  iconRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FED7AA",
+  },
+  badge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#F97316",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  heading: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 6,
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  sub: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  chips: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipDone: { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" },
+  chipPending: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  chipText: { fontSize: 11.5, fontWeight: "600" },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F97316",
+    borderRadius: 10,
+    paddingVertical: 13,
+    marginHorizontal: 50,
+    paddingHorizontal: 22,
+    marginTop: 20,
+    ...(Platform.OS === "web" && ({
+      boxShadow: "0 4px 14px rgba(249,115,22,0.28)",
+      cursor: "pointer",
+    } as any)),
+  },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  footer: {
+    fontSize: 11,
+    color: "#94A3B8",
+    textAlign: "center",
+  },
+});
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  "How It Works" card                                                        */
+/* ─────────────────────────────────────────────────────────────────────────── */
+const HowItWorksCard: React.FC = () => (
+  <View style={styles.textBox}>
+    <View style={styles.cardHeader}>
+      <Ionicons name="information-circle" size={20} color="#ee9302" />
+      <Text style={styles.cardHeaderText}>How It Works</Text>
+    </View>
+
+    <View style={styles.divider} />
+
+    <InfoItem icon="trophy" color="#F59E0B">
+      <Text style={styles.bold}>Reward System — </Text>
+      You will be rewarded with <Text style={styles.highlightGreen}>$5</Text> (GHS 50) after answering{" "}
+      <Text style={styles.highlightPurple}>5 questions</Text> correctly.
+    </InfoItem>
+
+    <InfoItem icon="stopwatch" color="#DB2777">
+      <Text style={styles.bold}>Time Limit — </Text>
+      All 5 questions must be answered within{" "}
+      <Text style={styles.highlightRed}>30 seconds</Text>. Exceeding the 30
+      seconds limit, would <Text style={styles.highlightRed}>automatically</Text> disqualify
+      <Text style={styles.highlightRed}> YOU </Text> for the current round.
+    </InfoItem>
+
+    <InfoItem icon="shield-checkmark" color="#2563EB">
+      <Text style={styles.bold}>Fair Play — </Text>
+      All scores are verified server-side. Manipulation attempts trigger an
+      automatic{" "}
+      <Text style={styles.highlightRed}>account suspension</Text>.
+    </InfoItem>
+  </View>
+);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /*  WelcomePage                                                                */
 /* ─────────────────────────────────────────────────────────────────────────── */
 export default function WelcomePage() {
   const router = useRouter();
-
-  const { signOut, setTraditionalAuth, userId } = useContext(GlobalContext);
-
+  const { signOut, setTraditionalAuth, userId, userName } = useContext(GlobalContext);
   const isConnectedNET = useNetworkStatus();
   const { signOut: authSignOut } = useAuth();
 
-  /* ── auth guard ── */
   useFocusEffect(
-    React.useCallback(() => {
-      if (!userId) router.replace("/");
-    }, [userId])
+    useCallback(() => {
+      if (!userName) router.replace("/");
+    }, [userName])
   );
 
-  /* ── local state ── */
   const [userTraditional, setUserTraditional] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [profileReady, setProfileReady] = useState<boolean | null>(null);
 
   usePushNotification(userId);
 
@@ -110,6 +300,22 @@ export default function WelcomePage() {
     })();
   }, []);
 
+  /* ── Check profile completion / skip status ── */
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      try {
+        const [completed, skipped] = await Promise.all([
+          AsyncStorage.getItem(CACHE_KEY(userId)),
+          AsyncStorage.getItem(SKIP_KEY(userId)),
+        ]);
+        setProfileReady(completed === "true" || skipped === "true");
+      } catch {
+        setProfileReady(false);
+      }
+    })();
+  }, [userId]);
+
   /* ── Firebase Realtime Presence ── */
   useEffect(() => {
     if (!userId) return;
@@ -120,8 +326,9 @@ export default function WelcomePage() {
     const unsub = onValue(connectedRef, (snapshot) => {
       if (!snapshot.val()) return;
       onDisconnect(statusRef).set({ email: userId, state: "offline", lastSeen: Date.now() });
-      set(statusRef, { email: userId, state: "online", lastSeen: Date.now() })
-        .catch((e) => console.error("Presence write error:", e));
+      set(statusRef, { email: userId, state: "online", lastSeen: Date.now() }).catch(
+        (e) => console.error("Presence write error:", e)
+      );
     });
 
     return () => unsub();
@@ -129,16 +336,11 @@ export default function WelcomePage() {
 
   useEffect(() => {
     if (!userId || !isConnectedNET) return;
-
     (async () => {
       try {
         const cached = await AsyncStorage.getItem("HAS_SIGN_IN_WITH_EMAIL_AND_PASSWORD");
         const isCachedForThisUser = cached && JSON.parse(cached).userId === userId;
-
-        if (isCachedForThisUser) {
-          console.log("✅ Auth cached, skipping Firebase call");
-          return;
-        }
+        if (isCachedForThisUser) return;
 
         try {
           await createUserWithEmailAndPassword(auth, userId, PASSWORD);
@@ -153,8 +355,6 @@ export default function WelcomePage() {
           "HAS_SIGN_IN_WITH_EMAIL_AND_PASSWORD",
           JSON.stringify({ userId, authenticatedAt: Date.now() })
         );
-        console.log("✅ Firebase Auth complete:", userId);
-
       } catch (authErr) {
         console.error("❌ Auth failed — aborting init:", authErr);
       }
@@ -187,7 +387,6 @@ export default function WelcomePage() {
       }
 
       await Updates.reloadAsync();
-
     } catch (e) {
       console.error("Logout failed:", e);
       router.replace("/");
@@ -195,7 +394,6 @@ export default function WelcomePage() {
       setIsResetting(false);
     }
   }, [isResetting, userId, authSignOut, setTraditionalAuth, router]);
-
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /*  Render                                                                 */
@@ -223,65 +421,47 @@ export default function WelcomePage() {
             </View>
           </View>
 
-          {/* ── INFO CARD ── */}
-          <View style={styles.textBox}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="information-circle" size={20} color="#ee9302" />
-              <Text style={styles.cardHeaderText}>How It Works</Text>
+          {/* ── CONDITIONAL CARD ── */}
+          {profileReady === null ? (
+            <View style={styles.cardLoadingShim} />
+          ) : profileReady ? (
+            <HowItWorksCard />
+          ) : (
+            <AlmostThereCard
+              onPress={() => router.push("./members_list")}
+            />
+          )}
+
+          {/* ── ACTION BUTTONS — only shown when profile is complete or skipped ── */}
+          {profileReady && (
+            <View style={styles.startContainer}>
+              <TouchableOpacity
+                onPress={() => userId ? router.push("./members_list") : router.push("/")}
+                style={styles.startButton}
+                activeOpacity={0.88}
+              >
+                <Ionicons name="rocket-outline" size={18} color="#fff" />
+                <Text style={styles.startText}>Continue</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.demoButton} activeOpacity={0.88}>
+                <Ionicons name="videocam-outline" size={18} color="#fff" />
+                <Text style={styles.startText}>Demo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.refreshButton, isResetting && { opacity: 0.6 }]}
+                onPress={handleClearSession}
+                activeOpacity={0.88}
+                disabled={isResetting}
+              >
+                {isResetting
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.refreshButtonText}>R</Text>
+                }
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.divider} />
-
-            <InfoItem icon="trophy" color="#F59E0B">
-              <Text style={styles.bold}>Reward System — </Text>
-              You will be rewarded with <Text style={styles.highlightGreen}>$5</Text> (GHS 50) after answering{" "}
-              <Text style={styles.highlightPurple}>5 questions</Text> correctly.
-            </InfoItem>
-
-            <InfoItem icon="stopwatch" color="#DB2777">
-              <Text style={styles.bold}>Time Limit — </Text>
-              All 5 questions must be answered within{" "}
-              <Text style={styles.highlightRed}>30 seconds</Text>. Exceeding the
-              30 seconds limit, would <Text style={styles.highlightRed}>automatically</Text> disqualify
-              <Text style={styles.highlightRed}> YOU </Text> for the current round.
-            </InfoItem>
-
-            <InfoItem icon="shield-checkmark" color="#2563EB">
-              <Text style={styles.bold}>Fair Play — </Text>
-              All scores are verified server-side. Manipulation attempts trigger an
-              automatic{" "}
-              <Text style={styles.highlightRed}>account suspension</Text>.
-            </InfoItem>
-          </View>
-
-          {/* ── ACTION BUTTONS ── */}
-          <View style={styles.startContainer}>
-            <TouchableOpacity
-              onPress={() => userId ? router.push("./members_list") : router.push("/")}
-              style={styles.startButton}
-              activeOpacity={0.88}
-            >
-              <Ionicons name="rocket-outline" size={18} color="#fff" />
-              <Text style={styles.startText}>Continue</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.demoButton} activeOpacity={0.88}>
-              <Ionicons name="videocam-outline" size={18} color="#fff" />
-              <Text style={styles.startText}>Demo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.refreshButton, isResetting && { opacity: 0.6 }]}
-              onPress={handleClearSession}
-              activeOpacity={0.88}
-              disabled={isResetting}
-            >
-              {isResetting
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.refreshButtonText}>R</Text>
-              }
-            </TouchableOpacity>
-          </View>
+          )}
 
           {/* ── LOGGED-IN USER PILL ── */}
           {userTraditional?.email ? (
@@ -332,6 +512,9 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, paddingHorizontal: 14 },
   iconWrapper: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 1, flexShrink: 0 },
   listText: { flex: 1, fontSize: 14.5, lineHeight: 22, color: "#374151" },
+
+  /* Loading shim */
+  cardLoadingShim: { height: 200, borderRadius: 16, backgroundColor: "#F1F5F9" },
 
   /* Buttons */
   startContainer: { marginTop: 24, flexDirection: "row", justifyContent: "center", gap: 10 },
