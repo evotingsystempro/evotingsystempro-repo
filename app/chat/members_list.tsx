@@ -922,6 +922,54 @@ const headerStyles = StyleSheet.create({
   },
 });
 
+// ─── Earn Real Cash Button ────────────────────────────────────────────────────
+
+const earnStyles = StyleSheet.create({
+  floatContainer: {
+    position: "absolute",
+    bottom: 90, // sits just above BottomNav
+    left: 20,
+    right: 20,
+    alignItems: "center",
+    zIndex: 99,
+    pointerEvents: "box-none" as any,
+  },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 30,
+    paddingVertical: 13,
+    paddingHorizontal: 32,
+    width: "70%",
+    maxWidth: 320,
+    overflow: "hidden",
+    backgroundColor: "#16a34a",
+    shadowColor: "#16a34a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 30,
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+});
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MembersList() {
@@ -1441,6 +1489,18 @@ export default function MembersList() {
             scrollEventThrottle={16}
             contentContainerStyle={{ paddingBottom: 5 }}
           />
+
+          <View style={earnStyles.floatContainer} pointerEvents="box-none">
+            <TouchableOpacity
+              style={earnStyles.btn}
+              onPress={() => router.navigate("./pickTopic")}
+              activeOpacity={0.82}
+            >
+              <View style={earnStyles.shimmer} />
+              <Ionicons name="cash-outline" size={18} color="#fff" style={{ marginRight: 7 }} />
+              <Text style={earnStyles.btnText}>Earn Real Cash</Text>
+            </TouchableOpacity>
+          </View>
 
           <BottomNav />
         </View>

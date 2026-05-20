@@ -80,7 +80,11 @@ const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <View>
     {/* ── Card (no button inside) ── */}
     <View style={atc.card}>
-      <View style={atc.stripe} />
+      <View style={headerStyles.divider}>
+        <View style={headerStyles.dividerLine} />
+        <View style={headerStyles.dividerDot} />
+        <View style={headerStyles.dividerLine} />
+      </View>
 
       <View style={atc.body}>
         <View style={atc.iconWrap}>
@@ -92,10 +96,7 @@ const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
           </View>
         </View>
 
-        <Text style={atc.heading}>Almost There! 🎯</Text>
-        <Text style={atc.sub}>
-          Complete your profile to unlock all features and start earning rewards.
-        </Text>
+        <Text style={atc.heading}>Complete your profile</Text>
 
         <View style={atc.chips}>
           <View style={[atc.chip, atc.chipDone]}>
@@ -122,7 +123,7 @@ const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
         color="#fff"
         style={{ marginRight: 6 }}
       />
-      <Text style={atc.btnText}>Complete Profile Now</Text>
+      <Text style={atc.btnText}>Complete Profile</Text>
     </TouchableOpacity>
   </View>
 );
@@ -130,17 +131,11 @@ const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
 const atc = StyleSheet.create({
   card: {
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: "#FED7AA",
-    backgroundColor: "#fff",
     overflow: "hidden",
-    ...(Platform.OS === "web" && ({
-      boxShadow: "0 4px 20px rgba(249,115,22,0.10)",
-    } as any)),
   },
   stripe: {
-    height: 4,
-    backgroundColor: "#F97316",
+    height: 2,
+    backgroundColor: "#eee",
     borderRadius: 2,
   },
   body: {
@@ -177,7 +172,8 @@ const atc = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 6,
+    marginBottom: 20,
+    marginTop: 14,
     letterSpacing: -0.3,
     textAlign: "center",
   },
@@ -214,8 +210,8 @@ const atc = StyleSheet.create({
     backgroundColor: "#F97316",
     borderRadius: 10,
     paddingVertical: 13,
-    marginHorizontal: 30,
-    paddingHorizontal: 22,
+    marginHorizontal: 35,
+    paddingHorizontal: 10,
     marginTop: 20,
     ...(Platform.OS === "web" && ({
       boxShadow: "0 4px 14px rgba(249,115,22,0.28)",
@@ -543,4 +539,21 @@ const styles = StyleSheet.create({
   highlightRed: { color: "#EF4444", fontWeight: "700" },
   highlightOrange: { color: "#FB923C", fontWeight: "700" },
   highlightBlue: { color: "#2563EB", fontWeight: "700" },
+});
+
+const headerStyles = StyleSheet.create({
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 9,
+    paddingHorizontal: 4,
+  },
+  dividerLine: { flex: 1, height: 0.5, backgroundColor: "#f97316" },
+  dividerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 10,
+    backgroundColor: "#ddd",
+    marginHorizontal: 6,
+  },
 });

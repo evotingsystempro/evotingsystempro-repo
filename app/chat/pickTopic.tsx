@@ -628,8 +628,8 @@ export default function PickTopicScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.headerEyebrow}>TASK MODE</Text>
-              <Text style={styles.headerTitle}>Pick a Task</Text>
+              <Text style={styles.headerEyebrow}>Anser questions & earn</Text>
+              <Text style={styles.headerTitle}>Pick a Topic</Text>
             </View>
 
             <View style={styles.headerActions}>
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20, fontWeight: "800", color: "#ff9c1bff",   // dark on white
-    letterSpacing: -0.4, lineHeight: 26,
+    letterSpacing: -0.4, lineHeight: 26, position: "relative", top: 3,
   },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
 
