@@ -82,7 +82,7 @@ import { MenuProvider } from 'react-native-popup-menu';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_KEY = 'AIzaSyCLAIz82lLkaNF0cN5bM9U5ga4wCU8NiqU';
+const API_KEY = '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 const chatModel = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 

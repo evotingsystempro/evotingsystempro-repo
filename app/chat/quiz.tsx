@@ -46,7 +46,7 @@ import { General_questions_on_computing } from "@/DATASET/General_questions_on_c
 import ChatBanner from "@/components/ChatBanner";
 
 /* ── Gemini setup ───────────────────────────────────────── */
-const API_KEY = "AIzaSyCC1nkdESZ2-pRW9_Tl6Q3pE5IvLVmugz4";
+const API_KEY = "";
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 const chatModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
@@ -59,7 +59,7 @@ const WALLET_DB = "WALLET_DB";
 const SCOREBOARD_DB = "SCOREBOARD_V5"; // add this
 const TRANSACTION_WALLET_DB = "TRANSACTION_WALLET_DB";
 
-const Quiz_reward_amount = 50 / 10; // GHS value awarded on a perfect win
+const Quiz_reward_amount = 50; // GHS value awarded on a perfect win
 const TIME_PENALTY_THRESHOLD = 30;
 
 /* ── Unified dataset map ────────────────────────────────── */
@@ -235,7 +235,7 @@ Generate exactly ${questionCount} multiple choice questions on the topic: "${ran
 
 DIFFICULTY:
 - If the topic: "${randomTopic}" is mathematics related: Then the questions should be extremly simple for young learners (ages 14–18).
-- If the topic: "${randomTopic}" is english related: Then the questions should be extremly simple for young learners (ages 14–18).
+- If the topic: "${randomTopic}" is english related: Then the questions should be extremly simple for young learners (ages 18–24).
 - All other topics: make questions challenging — test deeper understanding, not surface recall.
 
 QUESTION RULES:
@@ -1148,7 +1148,7 @@ export default function QuizScreen() {
               </Text>
 
               <Text style={styles.scoreText}>
-                Reward: ${Quiz_reward_amount}
+                Reward: ${Quiz_reward_amount / 10}
               </Text>
             </View>
 

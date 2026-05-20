@@ -9,12 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "notification": {
-      "vapidPublicKey": "BJQoVFj-At3_o3aD_rTGa7fsMRwi48FT4YnQgh7LNibgrpeMczhBxo3eqrMlrR09afDoWFH7GGLxHEIfmTT-OWs",
+      "vapidPublicKey": "",
       "serviceWorkerPath": "./sw.js"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.developershandle.smartlearnersapp",
+      "bundleIdentifier": "com.developershandle.smartpeople",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

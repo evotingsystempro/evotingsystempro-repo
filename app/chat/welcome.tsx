@@ -214,7 +214,7 @@ const atc = StyleSheet.create({
     backgroundColor: "#F97316",
     borderRadius: 10,
     paddingVertical: 13,
-    marginHorizontal: 50,
+    marginHorizontal: 30,
     paddingHorizontal: 22,
     marginTop: 20,
     ...(Platform.OS === "web" && ({

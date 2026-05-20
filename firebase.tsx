@@ -29,13 +29,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDZgvLDIo-5YNbI-1f9dWVni7MIEO3fGAA",
-  authDomain: "smartpeoplehub.firebaseapp.com",
-  projectId: "smartpeoplehub",
-  storageBucket: "smartpeoplehub.firebasestorage.app",
-  messagingSenderId: "376826674474",
-  appId: "1:376826674474:web:875900bf60c0559c5fb253",
-  measurementId: "G-G717XGE1WH"
+
 };
 
 let auth: Auth;
