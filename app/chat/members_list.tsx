@@ -583,7 +583,7 @@ const MemberListItem = React.memo(function MemberListItem({
       style={[itemStyles.container, isCurrentUser && itemStyles.currentUserBg]}
       activeOpacity={0.7}
     >
-      <View style={[itemStyles.avatarRing, { borderColor: isOnline ? "#16d51f" : "#fff" }]}>
+      <View style={[itemStyles.avatarRing, { borderColor: isOnline ? "#16d51f" : "#eee" }]}>
         <Image
           source={require("@/assets/images/userImagePlaceHolder.jpeg")}
           style={itemStyles.avatarPlaceholder}
@@ -643,7 +643,7 @@ const itemStyles = StyleSheet.create({
   avatarRing: {
     width: 55,
     height: 55,
-    borderRadius: 25,
+    borderRadius: 50,
     borderWidth: 1.5,
     padding: 2,
     alignItems: "center",
