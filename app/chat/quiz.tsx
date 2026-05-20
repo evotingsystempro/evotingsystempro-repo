@@ -46,7 +46,7 @@ import { General_questions_on_computing } from "@/DATASET/General_questions_on_c
 import ChatBanner from "@/components/ChatBanner";
 
 /* ── Gemini setup ───────────────────────────────────────── */
-const API_KEY = "";
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? "";
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 const chatModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });

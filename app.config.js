@@ -1,0 +1,66 @@
+export default {
+  expo: {
+    name: "Smart People",
+    slug: "smartpeople",
+    version: "1.3.0",
+    orientation: "portrait",
+    icon: "./assets/images/round_icon.png",
+    scheme: "smartpeople",
+    userInterfaceStyle: "automatic",
+    newArchEnabled: true,
+    notification: {
+      vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_KEY ?? "",
+      serviceWorkerPath: "./sw.js",
+    },
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.developershandle.smartpeople",
+      usesAppleSignIn: true,
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/adaptive-icon.png",
+        backgroundColor: "#faf7f2ff",
+      },
+      package: "com.developershandle.smartpeople",
+      googleServicesFile: "./google-services.json",
+    },
+    web: {
+      bundler: "metro",
+      output: "server",
+      favicon: "./assets/images/favicon.png",
+      themeColor: "#000000",
+    },
+    plugins: [
+      ["expo-router", { origin: "https://smartpeople.expo.app" }],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 100,
+          resizeMode: "contain",
+          backgroundColor: "#fff",
+        },
+      ],
+      "expo-secure-store",
+      "expo-apple-authentication",
+    ],
+    experiments: {
+      typedRoutes: true,
+    },
+    owner: "developershandle",
+    extra: {
+      EXPO_PUBLIC_BASE_URL: "https://smartpeople.expo.app",
+      router: {
+        origin: "https://smartpeople.expo.app",
+      },
+      eas: {
+        projectId: "f27f28d0-f2b1-452a-a5ab-22993310ad66",
+      },
+      expoConfig: {},
+    },
+  },
+};
