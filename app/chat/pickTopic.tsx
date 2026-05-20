@@ -52,18 +52,6 @@ type PersistedSelection = {
 };
 
 const STORAGE_KEY = "pickTopic_persistedSelection_v2";
-const RECENTS_KEY = "pickTopic_recentTopics_v1";
-const MAX_RECENTS = 5;
-
-type RecentTopic = {
-  title: string;
-  dataset: string;
-  categoryKey: string;
-  strandTitle: string;
-  strandColor: string;
-  strandIcon: keyof typeof Ionicons.glyphMap;
-  playedAt: number;
-};
 
 /* ─────────────────────────────────────────────────────────
    Strand definitions
@@ -341,73 +329,6 @@ const searchStyles = StyleSheet.create({
   },
 });
 
-/* ─────────────────────────────────────────────────────────
-   RecentTopicsBar
-───────────────────────────────────────────────────────── */
-function RecentTopicsBar({
-  recents,
-  onSelect,
-}: {
-  recents: RecentTopic[];
-  onSelect: (r: RecentTopic) => void;
-}) {
-  if (recents.length === 0) return null;
-
-  return (
-    <View style={recentStyles.section}>
-      <View style={recentStyles.headerRow}>
-        <Ionicons name="time-outline" size={13} color="#94a3b8" />
-        <Text style={recentStyles.headerText}>Recent</Text>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={recentStyles.scrollContent}
-      >
-        {recents.map((r, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[recentStyles.chip, { borderColor: r.strandColor + "40" }]}
-            onPress={() => onSelect(r)}
-            activeOpacity={0.72}
-          >
-            <View style={[recentStyles.chipIcon, { backgroundColor: r.strandColor + "18" }]}>
-              <Ionicons name={r.strandIcon} size={13} color={r.strandColor} />
-            </View>
-            <Text style={recentStyles.chipLabel} numberOfLines={1}>
-              {stripPrefix(r.title)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-const recentStyles = StyleSheet.create({
-  section: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1, borderBottomColor: "#f1ece6",
-    paddingTop: 10, paddingBottom: 10,
-  },
-  headerRow: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 14, marginBottom: 8,
-  },
-  headerText: {
-    fontSize: 11, fontWeight: "700", color: "#94a3b8",
-    textTransform: "uppercase", letterSpacing: 1,
-  },
-  scrollContent: { paddingHorizontal: 12, gap: 8, flexDirection: "row" },
-  chip: {
-    flexDirection: "row", alignItems: "center", gap: 7,
-    backgroundColor: "#fff", borderRadius: 999,
-    borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7,
-  },
-  chipIcon: { width: 22, height: 22, borderRadius: 11, justifyContent: "center", alignItems: "center" },
-  chipLabel: { fontSize: 12, fontWeight: "600", color: "#334155", maxWidth: 130 },
-});
-
 /* ═══════════════════════════════════════════════════════
    Main Screen
 ═══════════════════════════════════════════════════════ */
@@ -428,17 +349,13 @@ export default function PickTopicScreen() {
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>("");
   const [hydrated, setHydrated] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [recentTopics, setRecentTopics] = useState<RecentTopic[]>([]);
   const [showSearch, setShowSearch] = useState(false);
 
-  /* ── Load persisted selection + recents on mount ── */
+  /* ── Load persisted selection on mount ── */
   useEffect(() => {
     (async () => {
       try {
-        const [raw, rawRecents] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(RECENTS_KEY),
-        ]);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const saved: PersistedSelection = JSON.parse(raw);
           setExpandedDatasets(new Set(saved.expandedDatasets ?? []));
@@ -446,9 +363,6 @@ export default function PickTopicScreen() {
           setSelectedSubtopic(saved.selectedSubtopic);
           setSelected(saved.selected);
           setSelectedCategoryKey(saved.selectedCategoryKey ?? "");
-        }
-        if (rawRecents) {
-          setRecentTopics(JSON.parse(rawRecents));
         }
       } catch (_) { }
       finally {
@@ -544,39 +458,8 @@ export default function PickTopicScreen() {
     [handleSubtopicSelect]
   );
 
-  const handleRecentSelect = useCallback(
-    (r: RecentTopic) => {
-      const strand = getStrandForDataset(r.dataset);
-      if (!strand) return;
-      setExpandedDatasets((prev) => new Set([...prev, r.dataset]));
-      setExpandedCategories((prev) => new Set([...prev, r.categoryKey]));
-      handleSubtopicSelect(r.dataset, r.categoryKey, r.title);
-    },
-    [handleSubtopicSelect]
-  );
-
   const handleProceed = useCallback(async () => {
     if (!selected) return;
-
-    const datasetKey = selected.dataset.split("__")[0];
-    const strand = getStrandForDataset(datasetKey);
-    if (strand) {
-      const newRecent: RecentTopic = {
-        title: selected.title,
-        dataset: datasetKey,
-        categoryKey: selectedCategoryKey,
-        strandTitle: strand.title,
-        strandColor: strand.color,
-        strandIcon: strand.icon,
-        playedAt: Date.now(),
-      };
-      const updated = [
-        newRecent,
-        ...recentTopics.filter((r) => r.title !== selected.title),
-      ].slice(0, MAX_RECENTS);
-      setRecentTopics(updated);
-      AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(updated)).catch(() => { });
-    }
 
     router.replace({
       pathname: "./quiz",
@@ -587,7 +470,7 @@ export default function PickTopicScreen() {
         quizStatus: "online",
       },
     });
-  }, [selected, selectedCategoryKey, recentTopics, router]);
+  }, [selected, selectedCategoryKey, router]);
 
   const handleClearAll = useCallback(() => {
     setExpandedDatasets(new Set());
@@ -628,8 +511,8 @@ export default function PickTopicScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.headerEyebrow}>Anser questions & earn</Text>
-              <Text style={styles.headerTitle}>Pick a Topic</Text>
+              <Text style={styles.headerEyebrow}>Anser 5 questions & earn</Text>
+              <Text style={styles.headerTitle}>Pick A Topic</Text>
             </View>
 
             <View style={styles.headerActions}>
@@ -723,7 +606,7 @@ export default function PickTopicScreen() {
           </View>
         )}
 
-        {/* ── Recents strip + Subject list ── */}
+        {/* ── Subject list ── */}
         {!(showSearch && searchQuery.trim().length > 0) && (
           <ScrollView
             style={styles.scrollArea}
@@ -731,8 +614,6 @@ export default function PickTopicScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <RecentTopicsBar recents={recentTopics} onSelect={handleRecentSelect} />
-
             <View style={styles.strandsWrapper}>
               {STRANDS.map((strand) => {
                 const isOpen = expandedDatasets.has(strand.dataset);

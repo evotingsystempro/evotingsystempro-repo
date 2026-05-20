@@ -325,8 +325,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     marginRight: 5, fontSize: 18, paddingLeft: 10, paddingVertical: 10,
-
-
     ...(Platform.OS === "web" && {
       outlineStyle: "none",
       outlineWidth: 0,

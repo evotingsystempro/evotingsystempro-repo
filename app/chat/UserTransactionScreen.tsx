@@ -1,37 +1,5 @@
 /**
  * wallet_transaction_screen.tsx
- * ──────────────────────────────────────────────────────────────────────────────
- * User-facing wallet transaction history screen.
- * Displays only the current user's transactions from TRANSACTION_WALLET_DB.
- * Uses one-shot getDocs (no listeners) with cursor-based pagination.
- *
- * ── Canonical payload (MUST stay in sync with profile.tsx) ───────────────────
- *  {
- *    email, transaction_id, external_transaction_id,
- *    transaction_type, previous_balance, current_balance,
- *    transaction_amount, transaction_status, currency,
- *    payment_method, createdAt,
- *    // optional: note, counterpartyEmail, counterpartyName,
- *    //           subscription_snapshot, credit_snapshot
- *  }
- *
- * ── Display amount resolution (mirrors profile.tsx resolveDisplayAmount) ─────
- *  • transaction_amount ?? current_balance ?? 0
- *
- * ── Pagination Architecture ───────────────────────────────────────────────────
- *  • PAGE_SIZE = 10 documents per Firestore request.
- *  • Cursor = last QueryDocumentSnapshot from each batch, tracked in a ref.
- *  • Cursor document ID persisted to AsyncStorage; re-hydrated on next launch.
- *  • Mount flow:
- *      1. Paint stale cache from AsyncStorage immediately.
- *      2. Fetch FIRST page (newest docs) unconditionally — catches new docs.
- *         Results merged with cache (incoming wins on duplicate ids).
- *      3. Re-hydrate saved cursor → cursorRef restored for Load More.
- *  • "Load more" appends next batch using in-memory cursor.
- *  • Refresh wipes cursor + cache, restarts from page-1.
- *  • All search / filter / sort run CLIENT-SIDE on records[].
- *  • De-duplication by record.id prevents duplicates across pages / retries.
- * ──────────────────────────────────────────────────────────────────────────────
  */
 
 import React, {
