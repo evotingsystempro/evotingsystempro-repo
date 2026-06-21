@@ -43,4 +43,4 @@ yarn-error.*
 GoogleService-Info.plist
 app-example
 #google-services.json
-#DATASET/
+#DATASET/google-services.json
