@@ -250,7 +250,7 @@ export default function VerificationScreen() {
           >
             <View style={styles.logoContainer}>
               <Image
-                source={require("@/assets/images/SMART_PEOPLE_LOGO.png")}
+                source={require("@/assets/images/LOGO.png")}
                 style={{ width: 70, height: 70 }}
               />
               <Text style={styles.appName}>Smart People</Text>

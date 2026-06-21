@@ -33,17 +33,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
 *.tsbuildinfo
 
+# secrets & large datasets
+GoogleService-Info.plist
 app-example
-.env
-google-services.json
-DATASET/
-google-services.json
-DATASET/
-.env
-google-services.json
-DATASET/
+#google-services.json
+#DATASET/

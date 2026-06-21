@@ -2,7 +2,6 @@
 import React, {
   useContext,
   useEffect,
-  useRef,
   useState,
   useCallback,
 } from "react";
@@ -30,8 +29,6 @@ import ChatBanner from "@/components/ChatBanner";
 import { useAuth } from "@/context/auth";
 import * as Updates from "expo-updates";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileModal";
-//import { CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileScreen";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Constants                                                                  */
@@ -43,221 +40,203 @@ const sanitizeEmail = (email: string) =>
   email.replace(/\./g, "_").replace(/@/g, "_at_");
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/*  Design Tokens                                                              */
+/* ─────────────────────────────────────────────────────────────────────────── */
+const C = {
+  brand: "#1F9F4E",   // primary green
+  brandDeep: "#166534",   // dark green
+  brandLight: "#D1FAE5",   // light green
+  brandBorder: "#A7F3D0",   // soft green border
+  brandMuted: "#6FCF97",   // muted green
+  white: "#FFFFFF",
+  ink: "#1A2E22",
+  inkSoft: "#374151",
+  inkMuted: "#6B7280",
+  bg: "#F0FDF4",   // very light green background
+  cardBg: "#FFFFFF",
+  cardBorder: "#A7F3D0",
+};
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /*  Sub-components                                                             */
 /* ─────────────────────────────────────────────────────────────────────────── */
-interface InfoItemProps {
+interface FeatureItemProps {
   icon: string;
   color: string;
-  children: React.ReactNode;
+  title: string;
+  description: React.ReactNode;
 }
 
-const InfoItem = ({ icon, color, children }: InfoItemProps) => (
+const FeatureItem = ({ icon, color, title, description }: FeatureItemProps) => (
   <View style={styles.listItem}>
     <View style={[styles.iconWrapper, { backgroundColor: color + "18" }]}>
       <Ionicons name={icon as any} size={18} color={color} />
     </View>
-    <Text style={styles.listText}>{children}</Text>
-  </View>
-);
-
-interface StatBadgeProps {
-  label: string;
-  value: string;
-  color: string;
-}
-
-const StatBadge = ({ label, value, color }: StatBadgeProps) => (
-  <View style={[styles.statBadge, { borderColor: color + "55" }]}>
-    <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  "Almost There" nudge card                                                  */
-/* ─────────────────────────────────────────────────────────────────────────── */
-const AlmostThereCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <View>
-    {/* ── Card (no button inside) ── */}
-    <View style={atc.card}>
-      <View style={headerStyles.divider}>
-        <View style={headerStyles.dividerLine} />
-        <View style={headerStyles.dividerDot} />
-        <View style={headerStyles.dividerLine} />
-      </View>
-
-      <View style={atc.body}>
-        <View style={atc.iconWrap}>
-          <View style={atc.iconRing}>
-            <Ionicons name="person-circle-outline" size={42} color="#F97316" />
-          </View>
-          <View style={atc.badge}>
-            <Ionicons name="alert" size={11} color="#fff" />
-          </View>
-        </View>
-
-        <Text style={atc.heading}>Complete your profile</Text>
-
-        <View style={atc.chips}>
-          <View style={[atc.chip, atc.chipDone]}>
-            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-            <Text style={[atc.chipText, { color: "#065F46" }]}>Account created</Text>
-          </View>
-          <View style={[atc.chip, atc.chipPending]}>
-            <Ionicons name="ellipse-outline" size={13} color="#F97316" />
-            <Text style={[atc.chipText, { color: "#9A3412" }]}>Profile details</Text>
-          </View>
-        </View>
-
-        <Text style={atc.footer}>
-          🔒 Takes less than a minute · Your data stays private
-        </Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.featureTitle}>{title}</Text>
+      <Text style={styles.listText}>{description}</Text>
     </View>
-
-    {/* ── CTA button — outside the card border ── */}
-    <TouchableOpacity style={atc.btn} onPress={onPress} activeOpacity={0.85}>
-      <Ionicons
-        name="arrow-forward-circle-outline"
-        size={22}
-        color="#fff"
-        style={{ marginRight: 6 }}
-      />
-      <Text style={atc.btnText}>Complete Profile</Text>
-    </TouchableOpacity>
   </View>
 );
 
-const atc = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  stripe: {
-    height: 2,
-    backgroundColor: "#eee",
-    borderRadius: 2,
-  },
-  body: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  iconWrap: { position: "relative", marginBottom: 12 },
-  iconRing: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#FFF7ED",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FED7AA",
-  },
-  badge: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#F97316",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  heading: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 20,
-    marginTop: 14,
-    letterSpacing: -0.3,
-    textAlign: "center",
-  },
-  sub: {
-    fontSize: 13,
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 19,
-    marginBottom: 16,
-  },
-  chips: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  chipDone: { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" },
-  chipPending: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
-  chipText: { fontSize: 11.5, fontWeight: "600" },
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F97316",
-    borderRadius: 10,
-    paddingVertical: 13,
-    marginHorizontal: 35,
-    paddingHorizontal: 10,
-    marginTop: 20,
-    ...(Platform.OS === "web" && ({
-      boxShadow: "0 4px 14px rgba(249,115,22,0.28)",
-      cursor: "pointer",
-    } as any)),
-  },
-  btnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  footer: {
-    fontSize: 11,
-    color: "#94A3B8",
-    textAlign: "center",
-  },
-});
-
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  "How It Works" card                                                        */
+/*  Features Card                                                              */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const HowItWorksCard: React.FC = () => (
+const FeaturesCard: React.FC = () => (
   <View style={styles.textBox}>
+
+    {/* ── Card Header ── */}
     <View style={styles.cardHeader}>
-      <Ionicons name="information-circle" size={20} color="#ee9302" />
-      <Text style={styles.cardHeaderText}>How It Works</Text>
+      <View style={styles.cardIconWrap}>
+        <Ionicons name="checkmark-circle" size={18} color={C.white} />
+      </View>
+      <Text style={styles.cardHeaderText}>Platform Features</Text>
     </View>
 
     <View style={styles.divider} />
 
-    <InfoItem icon="trophy" color="#F59E0B">
-      <Text style={styles.bold}>Reward System — </Text>
-      You will be rewarded with <Text style={styles.highlightGreen}>$5</Text> (GHS 50) after answering{" "}
-      <Text style={styles.highlightPurple}>5 questions</Text> correctly.
-    </InfoItem>
+    {/* ── Feature 1 ── */}
+    <FeatureItem
+      icon="radio-button-on"
+      color="#1F9F4E"
+      title="Unique / Single-Choice Poll"
+      description={
+        <>
+          Create polls where each voter selects{" "}
+          <Text style={styles.highlightGreen}>exactly one candidate</Text>.
+          Perfect for elections, leadership votes, and referendums.
+        </>
+      }
+    />
 
-    <InfoItem icon="stopwatch" color="#DB2777">
-      <Text style={styles.bold}>Time Limit — </Text>
-      All 5 questions must be answered within{" "}
-      <Text style={styles.highlightRed}>30 seconds</Text>. Exceeding the 30
-      seconds limit, would <Text style={styles.highlightRed}>automatically</Text> disqualify
-      <Text style={styles.highlightRed}> YOU </Text> for the current round.
-    </InfoItem>
+    {/* ── Feature 2 ── */}
+    <FeatureItem
+      icon="checkbox"
+      color="#2563EB"
+      title="Multiple-Choice Poll"
+      description={
+        <>
+          Allow voters to select{" "}
+          <Text style={styles.highlightBlue}>multiple candidates</Text> in a
+          single poll. Ideal for committee elections and ranked preference voting.
+        </>
+      }
+    />
 
-    <InfoItem icon="shield-checkmark" color="#2563EB">
-      <Text style={styles.bold}>Fair Play — </Text>
-      All scores are verified server-side. Manipulation attempts trigger an
-      automatic{" "}
-      <Text style={styles.highlightRed}>account suspension</Text>.
-    </InfoItem>
+    {/* ── Feature 3 ── */}
+    <FeatureItem
+      icon="card"
+      color="#D97706"
+      title="Pay-Per-Vote"
+      description={
+        <>
+          Monetize your poll by setting a{" "}
+          <Text style={styles.highlightOrange}>charge per vote</Text>. Collect
+          payments securely via Mobile Money, Card, or Crypto before a vote is cast.
+        </>
+      }
+    />
+
+    {/* ── Feature 4 ── */}
+    <FeatureItem
+      icon="document-attach"
+      color="#7C3AED"
+      title="Import Eligible Voters"
+      description={
+        <>
+          Upload a{" "}
+          <Text style={styles.highlightPurple}>CSV, Excel, or Text file</Text>{" "}
+          of eligible voters. Only registered voters on your list can participate
+          — keeping your election secure and verified.
+        </>
+      }
+    />
+
+    {/* ── Feature 5 ── */}
+    <FeatureItem
+      icon="time"
+      color="#DB2777"
+      title="Scheduled Voting Windows"
+      description={
+        <>
+          Set a precise{" "}
+          <Text style={styles.highlightPink}>start and end time</Text> for your
+          poll. Voting automatically opens and closes at your configured time.
+        </>
+      }
+    />
+
+    {/* ── Feature 6 ── */}
+    <FeatureItem
+      icon="bar-chart"
+      color="#0891B2"
+      title="Real-Time Results"
+      description={
+        <>
+          Watch votes come in{" "}
+          <Text style={styles.highlightCyan}>live with charts and counters</Text>.
+          Results are updated instantly as each vote is cast and verified.
+        </>
+      }
+    />
+
+    {/* ── Feature 7 ── */}
+    <FeatureItem
+      icon="shield-checkmark"
+      color="#1F9F4E"
+      title="Fraud Prevention & Security"
+      description={
+        <>
+          Every vote is{" "}
+          <Text style={styles.highlightGreen}>device-fingerprinted</Text> and
+          server-verified. Duplicate votes, bots, and manipulation attempts are
+          automatically blocked and flagged.
+        </>
+      }
+    />
+
+    {/* ── Feature 8 ── */}
+    <FeatureItem
+      icon="people"
+      color="#EA580C"
+      title="Voter Management Dashboard"
+      description={
+        <>
+          View all registered voters, track who has voted, and manage{" "}
+          <Text style={styles.highlightOrange}>voter eligibility</Text> from
+          your admin dashboard in real time.
+        </>
+      }
+    />
+
+    {/* ── Feature 9 ── */}
+    <FeatureItem
+      icon="notifications"
+      color="#7C3AED"
+      title="Push Notification Alerts"
+      description={
+        <>
+          Automatically notify eligible voters when a poll{" "}
+          <Text style={styles.highlightPurple}>opens, closes, or results</Text>{" "}
+          are published — via push notification or email.
+        </>
+      }
+    />
+
+    {/* ── Feature 10 ── */}
+    <FeatureItem
+      icon="download"
+      color="#0891B2"
+      title="Export Results"
+      description={
+        <>
+          Download final results as a{" "}
+          <Text style={styles.highlightCyan}>PDF or Excel report</Text> for
+          official record-keeping, auditing, or public announcement.
+        </>
+      }
+    />
+
   </View>
 );
 
@@ -266,7 +245,7 @@ const HowItWorksCard: React.FC = () => (
 /* ─────────────────────────────────────────────────────────────────────────── */
 export default function WelcomePage() {
   const router = useRouter();
-  const { signOut, setTraditionalAuth, userId, userName } = useContext(GlobalContext);
+  const { setTraditionalAuth, userId, userName } = useContext(GlobalContext);
   const isConnectedNET = useNetworkStatus();
   const { signOut: authSignOut } = useAuth();
 
@@ -278,11 +257,10 @@ export default function WelcomePage() {
 
   const [userTraditional, setUserTraditional] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
-  const [profileReady, setProfileReady] = useState<boolean | null>(null);
 
   usePushNotification(userId);
 
-  /* ── load cached credentials ── */
+  /* ── Load cached credentials ── */
   useEffect(() => {
     (async () => {
       try {
@@ -295,22 +273,6 @@ export default function WelcomePage() {
       }
     })();
   }, []);
-
-  /* ── Check profile completion / skip status ── */
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      try {
-        const [completed, skipped] = await Promise.all([
-          AsyncStorage.getItem(CACHE_KEY(userId)),
-          AsyncStorage.getItem(SKIP_KEY(userId)),
-        ]);
-        setProfileReady(completed === "true" || skipped === "true");
-      } catch {
-        setProfileReady(false);
-      }
-    })();
-  }, [userId]);
 
   /* ── Firebase Realtime Presence ── */
   useEffect(() => {
@@ -330,6 +292,7 @@ export default function WelcomePage() {
     return () => unsub();
   }, [userId]);
 
+  /* ── Silent Firebase Email Auth ── */
   useEffect(() => {
     if (!userId || !isConnectedNET) return;
     (async () => {
@@ -402,78 +365,68 @@ export default function WelcomePage() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+
           {/* ── HEADER ── */}
           <View style={styles.headerRow}>
             <View style={styles.logoContainer}>
               <Image
-                source={require("@/assets/images/SMART_PEOPLE_LOGO.png")}
+                source={require("@/assets/images/LOGO.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
             </View>
-            <View>
-              <Text style={styles.title}>Smart People</Text>
-              <Text style={styles.subtitle}>Earn as you learn</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Precision Voting App</Text>
+              <Text style={styles.subtitle}>Secure · Transparent · Precise</Text>
             </View>
           </View>
 
-          {/* ── CONDITIONAL CARD ── */}
-          {profileReady === null ? (
-            <View style={styles.cardLoadingShim} />
-          ) : profileReady ? (
-            <HowItWorksCard />
-          ) : (
-            <AlmostThereCard
-              onPress={() => router.push("./members_list")}
-            />
-          )}
+          {/* ── FEATURES CARD ── */}
+          <FeaturesCard />
 
-          {/* ── ACTION BUTTONS — only shown when profile is complete or skipped ── */}
-          {profileReady && (
-            <View style={styles.startContainer}>
-              <TouchableOpacity
-                onPress={() => userId ? router.push("./members_list") : router.push("/")}
-                style={styles.startButton}
-                activeOpacity={0.88}
-              >
-                <Ionicons name="rocket-outline" size={18} color="#fff" />
-                <Text style={styles.startText}>Continue</Text>
-              </TouchableOpacity>
+          {/* ── ACTION BUTTONS ── */}
 
-              <TouchableOpacity style={styles.demoButton} activeOpacity={0.88}>
-                <Ionicons name="videocam-outline" size={18} color="#fff" />
-                <Text style={styles.startText}>Demo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.refreshButton, isResetting && { opacity: 0.6 }]}
-                onPress={handleClearSession}
-                activeOpacity={0.88}
-                disabled={isResetting}
-              >
-                {isResetting
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.refreshButtonText}>R</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          )}
 
           {/* ── LOGGED-IN USER PILL ── */}
           {userTraditional?.email ? (
             <View style={styles.userPill}>
-              <Ionicons name="person-circle-outline" size={15} color="#ee9302" />
+              <Ionicons name="person-circle-outline" size={15} color={C.brand} />
               <Text style={styles.userPillText} numberOfLines={1}>
                 {userTraditional.email}
               </Text>
             </View>
           ) : null}
+
         </ScrollView>
 
         {/* ── FOOTER ── */}
         <View style={styles.footerContainer}>
-          <Text style={styles.footerBrand}>© 2025 SmartPeople</Text>
-          <Text style={styles.footerTag}>Empowering Students to Learn Smarter</Text>
+          <View style={styles.startContainer}>
+            <TouchableOpacity
+              onPress={() => userId ? router.push("./members_list") : router.push("/")}
+              style={styles.startButton}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.startText}>Continue</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.demoButton} activeOpacity={0.88}>
+              <Ionicons name="videocam-outline" size={18} color="#fff" />
+              <Text style={styles.startText}>Demo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.refreshButton, isResetting && { opacity: 0.6 }]}
+              onPress={handleClearSession}
+              activeOpacity={0.88}
+              disabled={isResetting}
+            >
+              {isResetting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="log-out-outline" size={16} color="#fff" />
+              }
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     </ReusableScreen>
@@ -484,76 +437,129 @@ export default function WelcomePage() {
 /*  Styles                                                                     */
 /* ─────────────────────────────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#faf7f2" },
-  scrollContent: { paddingVertical: 12, paddingHorizontal: 18, paddingBottom: 20 },
+  safeArea: { flex: 1, backgroundColor: C.bg },
+  scrollContent: { paddingVertical: 12, paddingHorizontal: 16, paddingBottom: 20 },
 
-  /* Header */
-  headerRow: { flexDirection: "row", alignItems: "center", position: "relative", right: 15, justifyContent: "center", gap: 12, marginBottom: 16 },
+  /* ── Header ── */
+  headerRow: {
+    flexDirection: "row", alignItems: "center",
+    gap: 12, marginBottom: 14, alignSelf: "center"
+  },
   logoContainer: { borderRadius: 30 },
   logo: { width: 52, height: 52, borderRadius: 26 },
-  title: { fontSize: 22, fontWeight: "900", color: "#ee9302", letterSpacing: -0.3 },
-  subtitle: { fontSize: 12, color: "#9CA3AF", fontWeight: "600", letterSpacing: 0.4, textTransform: "uppercase" },
+  title: {
+    fontSize: 20, fontWeight: "900",
+    color: C.brand, letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 11, color: C.inkMuted,
+    fontWeight: "600", letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
 
-  /* Stats */
-  statsRow: { flexDirection: "row", justifyContent: "center", gap: 10, marginBottom: 14 },
-  statBadge: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, backgroundColor: "#fff" },
-  statValue: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
-  statLabel: { fontSize: 11, color: "#9CA3AF", fontWeight: "600", marginTop: 2 },
+  /* ── Welcome Banner ── */
+  welcomeBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.brand,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 14,
+  },
+  welcomeText: {
+    color: C.white, fontSize: 14, fontWeight: "500",
+  },
 
-  /* Info card */
-  textBox: { backgroundColor: "#fff", borderRadius: 16, paddingTop: 14, paddingBottom: 6, borderWidth: 1, borderColor: "#f0e8df" },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, marginBottom: 10 },
-  cardHeaderText: { fontSize: 14, fontWeight: "800", color: "#374151", textTransform: "uppercase", letterSpacing: 0.5 },
-  divider: { height: 1, backgroundColor: "#f5ece3", marginBottom: 12 },
-  listItem: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, paddingHorizontal: 14 },
-  iconWrapper: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 1, flexShrink: 0 },
-  listText: { flex: 1, fontSize: 14.5, lineHeight: 22, color: "#374151" },
+  /* ── Features Card ── */
+  textBox: {
+    backgroundColor: C.cardBg, borderRadius: 16,
+    paddingTop: 14, paddingBottom: 8,
+    borderWidth: 1, borderColor: C.cardBorder,
+  },
+  cardHeader: {
+    flexDirection: "row", alignItems: "center",
+    gap: 8, paddingHorizontal: 16, marginBottom: 10,
+  },
+  cardIconWrap: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: C.brand,
+    alignItems: "center", justifyContent: "center",
+  },
+  cardHeaderText: {
+    fontSize: 13, fontWeight: "800",
+    color: C.ink, textTransform: "uppercase", letterSpacing: 0.5,
+  },
+  divider: { height: 1, backgroundColor: C.brandLight, marginBottom: 12 },
 
-  /* Loading shim */
-  cardLoadingShim: { height: 200, borderRadius: 16, backgroundColor: "#F1F5F9" },
+  listItem: {
+    flexDirection: "row", alignItems: "flex-start",
+    marginBottom: 14, paddingHorizontal: 14, gap: 10,
+  },
+  iconWrapper: {
+    width: 34, height: 34, borderRadius: 9,
+    alignItems: "center", justifyContent: "center",
+    flexShrink: 0, marginTop: 1,
+  },
+  featureTitle: {
+    fontSize: 13.5, fontWeight: "700",
+    color: C.ink, marginBottom: 3,
+  },
+  listText: {
+    fontSize: 13, lineHeight: 20, color: C.inkSoft,
+  },
 
-  /* Buttons */
-  startContainer: { marginTop: 24, flexDirection: "row", justifyContent: "center", gap: 10 },
-  startButton: { backgroundColor: "#ee9302", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 6 },
-  demoButton: { backgroundColor: "#94A3B8", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 6 },
+  /* ── Action Buttons ── */
+  startContainer: {
+    marginTop: 20, flexDirection: "row",
+    justifyContent: "center", gap: 10,
+  },
+  startButton: {
+    backgroundColor: C.brand, borderRadius: 10,
+    paddingHorizontal: 18, paddingVertical: 11,
+    flexDirection: "row", alignItems: "center", gap: 6,
+  },
+  demoButton: {
+    backgroundColor: "#94A3B8", borderRadius: 10,
+    paddingHorizontal: 18, paddingVertical: 11,
+    flexDirection: "row", alignItems: "center", gap: 6,
+  },
+  refreshButton: {
+    alignItems: "center", backgroundColor: "#EF4444",
+    flexDirection: "row", paddingHorizontal: 15,
+    borderRadius: 50, paddingVertical: 11, justifyContent: "center",
+  },
+  startText: {
+    color: "#fff", fontWeight: "700", fontSize: 13,
+    textTransform: "uppercase", letterSpacing: 0.5,
+  },
 
-  /* Reset */
-  refreshButton: { alignItems: "center", backgroundColor: "#f80525ff", flexDirection: "row", paddingHorizontal: 15, borderRadius: 50, paddingVertical: 10, justifyContent: "center" },
-  refreshButtonText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  /* ── User Pill ── */
+  userPill: {
+    flexDirection: "row", alignItems: "center",
+    alignSelf: "center", gap: 5, marginTop: 16,
+    backgroundColor: C.brandLight, borderWidth: 1,
+    borderColor: C.brandBorder, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5, maxWidth: "80%",
+  },
+  userPillText: { fontSize: 12, color: C.brandDeep, fontWeight: "600" },
 
-  startText: { color: "#fff", fontWeight: "700", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5 },
+  /* ── Footer ── */
+  footerContainer: {
+    paddingBottom: 17, borderTopWidth: 1,
+    borderColor: C.brandBorder, alignItems: "center",
+    backgroundColor: C.white,
+  },
+  footerBrand: { color: C.brand, fontWeight: "700", fontSize: 13 },
+  footerTag: {
+    color: C.inkMuted, fontSize: 11,
+    marginTop: 2, letterSpacing: 0.3,
+  },
 
-  /* User pill */
-  userPill: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 5, marginTop: 16, backgroundColor: "#fff7ed", borderWidth: 1, borderColor: "#fed7aa", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, maxWidth: "80%" },
-  userPillText: { fontSize: 12, color: "#92400e", fontWeight: "600" },
-
-  /* Footer */
-  footerContainer: { paddingVertical: 12, borderTopWidth: 1, borderColor: "#F3F4F6", alignItems: "center", backgroundColor: "#fff" },
-  footerBrand: { color: "#ea580c", fontWeight: "700", fontSize: 13 },
-  footerTag: { color: "#9CA3AF", fontSize: 11, marginTop: 2, letterSpacing: 0.3 },
-
-  /* Text helpers */
+  /* ── Text highlights ── */
   bold: { fontWeight: "700" },
   highlightGreen: { color: "#16A34A", fontWeight: "700" },
-  highlightPurple: { color: "#9333EA", fontWeight: "700" },
-  highlightRed: { color: "#EF4444", fontWeight: "700" },
-  highlightOrange: { color: "#FB923C", fontWeight: "700" },
   highlightBlue: { color: "#2563EB", fontWeight: "700" },
-});
-
-const headerStyles = StyleSheet.create({
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 9,
-    paddingHorizontal: 4,
-  },
-  dividerLine: { flex: 1, height: 0.5, backgroundColor: "#f97316" },
-  dividerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 10,
-    backgroundColor: "#ddd",
-    marginHorizontal: 6,
-  },
+  highlightPurple: { color: "#7C3AED", fontWeight: "700" },
+  highlightRed: { color: "#EF4444", fontWeight: "700" },
+  highlightOrange: { color: "#D97706", fontWeight: "700" },
+  highlightPink: { color: "#DB2777", fontWeight: "700" },
+  highlightCyan: { color: "#0891B2", fontWeight: "700" },
 });

@@ -1,8 +1,22 @@
+//PrivacyPolicy&TermsOfUse
 import React from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import ReusableScreen from "@/components/ReusableScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+
+/* ── Brand Tokens ── */
+const T = {
+  brand: "#26B865",  // primary green from logo
+  brandDeep: "#1A8A4A",  // dark green
+  brandLight: "#E8F5ED",  // very light mint
+  brandBorder: "#A8DDB5",  // soft mint border
+  brandMuted: "#6FCF97",  // muted green
+  white: "#FFFFFF",
+  ink: "#1A2E22",  // very dark green-black
+  inkSoft: "#374151",
+  inkMuted: "#6B7280",
+};
 
 export default function PolicyTermsScreen() {
   return (
@@ -10,13 +24,11 @@ export default function PolicyTermsScreen() {
 
       {/* ===== FIXED HEADER ===== */}
       <View style={styles.fixedHeader}>
-        <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "center" }}><Ionicons
-          name="arrow-back"
-          size={24}
-          color="#fff"
-          onPress={() => router.back()}
-        /><Text style={styles.headerTitle}> Privacy Policy & Terms of Use</Text></View>
-        <Text style={styles.subHeader}>Smart People</Text>
+        <View style={styles.headerRow}>
+          <Ionicons name="arrow-back" size={22} color={T.white} onPress={() => router.back()} />
+          <Text style={styles.headerTitle}>Privacy Policy & Terms of Use</Text>
+        </View>
+        <Text style={styles.subHeader}>Precision Voting App</Text>
       </View>
 
       {/* ===== SCROLLABLE CONTENT ===== */}
@@ -26,164 +38,245 @@ export default function PolicyTermsScreen() {
         style={styles.scrollArea}
       >
 
-        {/* PRIVACY POLICY */}
+        {/* ── PRIVACY POLICY ── */}
         <View style={styles.sectionBox}>
-          <Text style={styles.sectionTitle}>Privacy Policy</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionIconWrap}>
+              <Ionicons name="shield-checkmark" size={18} color={T.white} />
+            </View>
+            <Text style={styles.sectionTitle}>Privacy Policy</Text>
+          </View>
 
+          <View style={styles.metaBox}>
+            <Text style={styles.metaText}><Text style={styles.bold}>Effective Date:</Text> November 2, 2025</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> Precision Voting App Limited</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076</Text>
+          </View>
+
+          <SectionHeader title="1. Introduction" />
           <Text style={styles.text}>
-            <Text style={styles.bold}>Effective Date:</Text> November 2, 2025{"\n"}
-            <Text style={styles.bold}>Developer:</Text> SmartPeople Limited{"\n"}
-            <Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076
+            Precision Voting App Limited ("we," "our," or "us") operates a secure, transparent,
+            and tamper-proof digital voting platform. We are committed to protecting the integrity,
+            confidentiality, and privacy of all voter data. This Privacy Policy explains how we
+            collect, use, store, and safeguard your information when you use the Precision Voting App.
           </Text>
 
-          <Text style={styles.sectionHeader}>1. Introduction</Text>
+          <SectionHeader title="2. Information We Collect" />
           <Text style={styles.text}>
-            SmartPeople Limited (“we,” “our,” or “us”) respects your privacy and is
-            committed to protecting your personal data. This Privacy Policy explains how we
-            collect, use, store, and protect your information when you use the Smart People App.
+            • <Text style={styles.bold}>Identity Information:</Text> Full name, email address, phone number, and profile photo for voter verification.{"\n"}
+            • <Text style={styles.bold}>Device Information:</Text> Device ID, IP address, and platform details to prevent duplicate voting and fraud.{"\n"}
+            • <Text style={styles.bold}>Voting Activity:</Text> Voting records stored securely and anonymized where applicable.{"\n"}
+            • <Text style={styles.bold}>Biometric/Fingerprint Data:</Text> Device fingerprints used solely to enforce one-person-one-vote integrity.
           </Text>
 
-          <Text style={styles.sectionHeader}>2. Information We Collect</Text>
+          <SectionHeader title="3. How We Use Your Information" />
           <Text style={styles.text}>
-            • Personal Information: full name, email address, phone number, profile photo, and payment details.{"\n"}
-            • Usage Information: quiz data, device info, IP address, app usage statistics.{"\n"}
-            • Optional Data: reward verification details.
+            • Verify voter identity and eligibility{"\n"}
+            • Prevent fraudulent or duplicate votes{"\n"}
+            • Maintain accurate and tamper-proof vote records{"\n"}
+            • Communicate election results and important updates{"\n"}
+            • Improve platform security and performance{"\n\n"}
+            We do not sell, rent, or share voter data with third parties for commercial purposes.
           </Text>
 
-          <Text style={styles.sectionHeader}>3. How We Use Your Information</Text>
+          <SectionHeader title="4. Vote Confidentiality" />
           <Text style={styles.text}>
-            • Create and manage accounts {"\n"}
-            • Verify reward eligibility {"\n"}
-            • Deliver educational content {"\n"}
-            • Improve app performance {"\n"}
-            • Communicate important updates {"\n"}
-            We do not sell or rent user data.
+            All votes are encrypted end-to-end. Individual voting choices are never disclosed
+            to any third party, candidate, or administrator. Only aggregate results are published.
+            Your vote is your private democratic right and will always remain confidential.
           </Text>
 
-          <Text style={styles.sectionHeader}>4. Reward Payments</Text>
+          <SectionHeader title="5. Data Storage & Security" />
           <Text style={styles.text}>
-            Reward verification may require additional data. Payments may be processed via Mobile Money,
-            Crypto, or PayPal. Data is deleted when no longer needed.
+            We employ industry-standard encryption (AES-256), secure server infrastructure,
+            and real-time fraud detection. Vote data is hosted on Firebase's secure cloud
+            infrastructure with strict access controls. While no system is 100% immune,
+            we apply best-in-class protections to safeguard your data.
           </Text>
 
-          <Text style={styles.sectionHeader}>5. Data Storage & Security</Text>
+          <SectionHeader title="6. Sharing of Information" />
           <Text style={styles.text}>
-            We use encryption and secure systems to safeguard data, though no system is 100% secure.
+            We may share limited data only:{"\n"}
+            • With authorized election administrators for result verification{"\n"}
+            • When required by law or a valid court order{"\n"}
+            • With security partners to investigate fraudulent activity{"\n\n"}
+            No voter data is shared for marketing or advertising purposes under any circumstances.
           </Text>
 
-          <Text style={styles.sectionHeader}>6. Sharing of Information</Text>
+          <SectionHeader title="7. Your Rights" />
           <Text style={styles.text}>
-            We may share limited data with service providers or when required by law. No marketing sharing without consent.
+            You have the right to:{"\n"}
+            • Access your personal data{"\n"}
+            • Request corrections to inaccurate information{"\n"}
+            • Request deletion of your account and associated data{"\n"}
+            • Withdraw consent at any time{"\n\n"}
+            Submit all requests to: stanleyafon@gmail.com
           </Text>
 
-          <Text style={styles.sectionHeader}>7. Your Rights</Text>
+          <SectionHeader title="8. Minors" />
           <Text style={styles.text}>
-            You may request access, edits, deletion, or account closure via: stanleyafon@gmail.com.
+            Voting eligibility is determined by the specific election rules set by the
+            election administrator. The platform is restricted to users aged 13 and above.
+            Data collected from underage users is permanently and immediately deleted.
           </Text>
 
-          <Text style={styles.sectionHeader}>8. Children’s Privacy</Text>
+          <SectionHeader title="9. Data Retention" />
           <Text style={styles.text}>
-            App is for ages 8+. Data from minors under 8 is deleted.
+            Voter data is retained for the duration of the election and up to 12 months
+            thereafter for audit and legal compliance. Upon account deletion, all personal
+            data is permanently erased within 30 days.
           </Text>
 
-          <Text style={styles.sectionHeader}>9. Data Retention</Text>
+          <SectionHeader title="10. Third-Party Services" />
           <Text style={styles.text}>
-            Data is retained only as needed for legal or operational reasons.
+            We use trusted infrastructure providers including Firebase (Google). These
+            providers are bound by strict data processing agreements. We are not responsible
+            for the independent privacy practices of external services or links.
           </Text>
 
-          <Text style={styles.sectionHeader}>10. Third-Party Services</Text>
+          <SectionHeader title="11. Policy Updates" />
           <Text style={styles.text}>
-            We are not responsible for privacy practices of external services linked through the App.
+            We may update this policy to reflect platform improvements or legal requirements.
+            Users will be notified of significant changes via in-app notification or email.
+            Continued use after updates constitutes acceptance of the revised policy.
           </Text>
 
-          <Text style={styles.sectionHeader}>11. Updates to Policy</Text>
+          <SectionHeader title="12. Contact Us" />
           <Text style={styles.text}>
-            Continued use after updates signifies acceptance.
-          </Text>
-
-          <Text style={styles.sectionHeader}>12. Contact Us</Text>
-          <Text style={styles.text}>
-            Email: stanleyafon@gmail.com {"\n"}
+            Email: stanleyafon@gmail.com{"\n"}
             Phone: +233 543 171 076
           </Text>
         </View>
 
-        {/* TERMS AND CONDITIONS */}
+        {/* ── TERMS AND CONDITIONS ── */}
         <View style={styles.sectionBox}>
-          <Text style={styles.sectionTitle}>Terms & Conditions</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionIconWrap}>
+              <Ionicons name="document-text" size={18} color={T.white} />
+            </View>
+            <Text style={styles.sectionTitle}>Terms & Conditions</Text>
+          </View>
 
+          <View style={styles.metaBox}>
+            <Text style={styles.metaText}><Text style={styles.bold}>Effective Date:</Text> November 2, 2025</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> Precision Voting App Limited</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076</Text>
+          </View>
+
+          <SectionHeader title="1. Acceptance of Terms" />
           <Text style={styles.text}>
-            <Text style={styles.bold}>Effective Date:</Text> November 2, 2025{"\n"}
-            <Text style={styles.bold}>Developer:</Text> SmartPeople Limited{"\n"}
-            <Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076
+            By accessing or using the Precision Voting App, you confirm that you have read,
+            understood, and agreed to these Terms and Conditions in full. If you do not agree,
+            you must discontinue use immediately. We reserve the right to update these terms
+            at any time. Continued use after changes constitutes acceptance.
           </Text>
 
-          <Text style={styles.sectionHeader}>1. Acceptance of Terms</Text>
+          <SectionHeader title="2. About the Platform" />
           <Text style={styles.text}>
-            By using the Smart People App, you agree to these Terms. Updates may occur at any time.
+            Precision Voting App is a secure, auditable digital voting platform designed to
+            conduct fair, transparent, and tamper-proof elections. The platform supports
+            community polls, organizational elections, and competitive voting events, with
+            features including real-time results, voter verification, and advanced anti-fraud mechanisms.
           </Text>
 
-          <Text style={styles.sectionHeader}>2. About Smart People</Text>
+          <SectionHeader title="3. Voter Eligibility" />
           <Text style={styles.text}>
-            The App offers quizzes, challenges, and competitions. Free to use, account required for full features.
+            • You must meet the age and eligibility criteria defined by the specific election.{"\n"}
+            • Each registered user is permitted one vote per election unless stated otherwise.{"\n"}
+            • You must register with accurate, truthful, and verifiable personal information.{"\n"}
+            • Impersonating another voter constitutes electoral fraud and may result in criminal prosecution.
           </Text>
 
-          <Text style={styles.sectionHeader}>3. Eligibility</Text>
+          <SectionHeader title="4. Account Registration" />
           <Text style={styles.text}>
-            Users must be at least 8. Registration requires accurate information.
+            • Provide accurate and up-to-date registration details at all times.{"\n"}
+            • You are solely responsible for maintaining the security of your login credentials.{"\n"}
+            • One account per person is strictly enforced. Multiple accounts will be permanently suspended.{"\n"}
+            • We reserve the right to verify identity before granting voting access.{"\n"}
+            • We are not liable for unauthorized access resulting from user negligence or credential sharing.
           </Text>
 
-          <Text style={styles.sectionHeader}>4. Account Registration</Text>
+          <SectionHeader title="5. Voting Rules & Integrity" />
           <Text style={styles.text}>
-            • Provide accurate details {"\n"}
-            • Keep login credentials secure {"\n"}
-            • We are not liable for unauthorized access from user negligence
+            • Each eligible voter may cast exactly one vote per election — no exceptions.{"\n"}
+            • Votes are final and irrevocable once submitted.{"\n"}
+            • All votes are encrypted and stored securely with a full audit trail.{"\n"}
+            • Voting multiple times using different accounts, devices, or identities is strictly prohibited.{"\n"}
+            • Device fingerprinting and behavioral analysis are used to enforce one-person-one-vote compliance.{"\n"}
+            • All results are verified server-side before publication.{"\n"}
+            • Any attempt to manipulate, hack, or interfere with the voting system will result in immediate disqualification and referral to law enforcement.
           </Text>
 
-          <Text style={styles.sectionHeader}>5. Quiz Rules & Rewards</Text>
+          <SectionHeader title="6. Election Administration" />
           <Text style={styles.text}>
-            • Participate in quizzes to earn rewards {"\n"}
-            • Answer 5 questions correctly for an instant reward of $5 {"\n"}
-            • $10 to $200 top scorer prize every 30 days {"\n"}
-            • Payments via Mobile Money, Crypto, PayPal {"\n"}
-            • Fraud results in disqualification {"\n"}
-            • Reward programs may change anytime
+            • Election administrators are responsible for configuring categories, deadlines, and eligibility rules.{"\n"}
+            • Precision Voting App Limited is not responsible for disputes from improperly configured elections.{"\n"}
+            • Administrators must comply with all applicable laws when conducting elections on this platform.{"\n"}
+            • Published results are considered final unless formally challenged within 48 hours through proper dispute channels.
           </Text>
 
-          <Text style={styles.sectionHeader}>6. User Conduct</Text>
+          <SectionHeader title="7. Prohibited Conduct" />
           <Text style={styles.text}>
-            Users must not post harmful content or disrupt the App.
+            Users must not:{"\n"}
+            • Cast votes on behalf of another person without explicit legal authorization{"\n"}
+            • Use bots, scripts, or automated tools to manipulate votes or results{"\n"}
+            • Attempt to access, alter, copy, or delete other users' data{"\n"}
+            • Share login credentials or voting access with any third party{"\n"}
+            • Engage in vote buying, voter coercion, or any form of electoral fraud{"\n"}
+            • Post harmful, defamatory, or illegal content on the platform{"\n"}
+            • Reverse-engineer, decompile, or tamper with the platform's source code{"\n\n"}
+            Violations will result in immediate account suspension and potential legal proceedings.
           </Text>
 
-          <Text style={styles.sectionHeader}>7. Intellectual Property</Text>
+          <SectionHeader title="8. Result Publication" />
           <Text style={styles.text}>
-            All content is owned by SmartPeople Limited. Do not copy or redistribute without permission.
+            • Results are published in real-time or post-closure based on election configuration.{"\n"}
+            • Aggregate results are public; individual voting choices remain strictly confidential.{"\n"}
+            • Precision Voting App Limited reserves the right to withhold or delay results pending fraud investigations.{"\n"}
+            • All result disputes must be formally raised within 48 hours of publication via the designated dispute channel.
           </Text>
 
-          <Text style={styles.sectionHeader}>8. Privacy & Data</Text>
+          <SectionHeader title="9. Intellectual Property" />
           <Text style={styles.text}>
-            Personal data is used only for account management and reward verification.
+            All platform content, branding, algorithms, UI designs, and software are the
+            exclusive intellectual property of Precision Voting App Limited. You may not
+            copy, reproduce, distribute, or create derivative works without prior written permission.
           </Text>
 
-          <Text style={styles.sectionHeader}>9. Limitation of Liability</Text>
+          <SectionHeader title="10. Limitation of Liability" />
           <Text style={styles.text}>
-            We are not responsible for data loss, reward loss, or indirect damages.
+            Precision Voting App Limited shall not be liable for:{"\n"}
+            • Technical failures or outages beyond our reasonable control{"\n"}
+            • Losses arising from unauthorized account access due to user negligence{"\n"}
+            • Errors in election configuration made by administrators{"\n"}
+            • Any indirect, incidental, or consequential damages of any kind{"\n\n"}
+            Our maximum aggregate liability is limited to fees paid by the user, if any.
           </Text>
 
-          <Text style={styles.sectionHeader}>10. Termination</Text>
+          <SectionHeader title="11. Suspension & Termination" />
           <Text style={styles.text}>
-            Accounts may be terminated for rule violations. Users may request deletion anytime.
+            We reserve the right to suspend or permanently terminate accounts that:{"\n"}
+            • Violate any provision of these Terms and Conditions{"\n"}
+            • Engage in fraudulent voting or identity fraud{"\n"}
+            • Provide false or misleading registration information{"\n"}
+            • Attempt to compromise platform security or integrity{"\n\n"}
+            Users may request voluntary account deletion at any time by contacting us.
           </Text>
 
-          <Text style={styles.sectionHeader}>11. Governing Law</Text>
+          <SectionHeader title="12. Governing Law & Dispute Resolution" />
           <Text style={styles.text}>
-            Governed by the laws of Ghana.
+            These Terms are governed exclusively by the laws of the Republic of Ghana.
+            Any disputes arising from use of the platform shall first be resolved through
+            good-faith negotiation between the parties. If unresolved within 30 days,
+            disputes shall be submitted to the competent courts of Ghana for final resolution.
           </Text>
 
-          <Text style={styles.sectionHeader}>12. Contact Us</Text>
+          <SectionHeader title="13. Contact Us" />
           <Text style={styles.text}>
-            Email: stanleyafon@gmail.com {"\n"}
-            Phone: +233 543 171 076
+            For questions, complaints, or legal notices:{"\n"}
+            Email: stanleyafon@gmail.com{"\n"}
+            Phone: +233 543 171 076{"\n"}
+            Address: Precision Voting App Limited, Ghana
           </Text>
         </View>
 
@@ -191,103 +284,155 @@ export default function PolicyTermsScreen() {
 
       {/* ===== FIXED FOOTER ===== */}
       <View style={styles.fixedFooter}>
-        <View style={styles.footerSection}>
-          <Text style={styles.footerText}>© 2025 Smart People</Text>
-          <Text style={styles.footerText}>
-            Empowering Students to Learn Smarter
-          </Text>
-
-        </View>
+        <Text style={styles.footerText}>© 2025 Precision Voting App</Text>
+        <Text style={styles.footerSubText}>Empowering Communities to Vote with Precision</Text>
       </View>
 
     </ReusableScreen>
   );
 }
 
+/* ── Reusable section header component ── */
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <View style={styles.sectionHeaderDot} />
+      <Text style={styles.sectionHeader}>{title}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
-    marginTop: 80,    // keeps content below fixed header
-    marginBottom: 60,  // avoids footer overlap
+    marginTop: 80,
+    marginBottom: 60,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
+    gap: 16,
   },
-  footerSection: {
-    alignItems: "center",
-    // marginTop: 6,
-  },
-  /* ----- Fixed Header ----- */
+
+  /* ── Fixed Header ── */
   fixedHeader: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 18,
-    backgroundColor: "#fff",
+    top: 0, left: 0, right: 0,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#26B865",
     zIndex: 999,
     elevation: 6,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "800",
-    color: "#F97316",
-    textAlign: "center",
+    color: "#fff",
+    flex: 1,
   },
   subHeader: {
-    fontSize: 17,
-    color: "#ef9308ff",
-    textAlign: "center",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.80)",
     marginTop: 2,
-    fontWeight: "800",
+    fontWeight: "600",
+    paddingLeft: 32,
   },
 
-  /* ----- Fixed Footer ----- */
+  /* ── Fixed Footer ── */
   fixedFooter: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 14,
-    backgroundColor: "#fff",
+    bottom: 0, left: 0, right: 0,
+    paddingVertical: 12,
+    backgroundColor: "#26B865",
     zIndex: 999,
     elevation: 6,
+    alignItems: "center",
   },
   footerText: {
-    textAlign: "center",
-    color: "#F97316",
-    fontSize: 15,
-    fontWeight: "600",
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  footerSubText: {
+    color: "rgba(255,255,255,0.80)",
+    fontSize: 11,
+    marginTop: 2,
   },
 
-  /* ----- Orange UI Styling ----- */
+  /* ── Section boxes ── */
   sectionBox: {
-    backgroundColor: "#fff7ef",
+    backgroundColor: "#F0FDF4",
     padding: 16,
-    borderRadius: 14,
-    marginBottom: 15,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#ffcf9b",
+    borderColor: "#A8DDB5",
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+  },
+  sectionIconWrap: {
+    width: 34, height: 34,
+    borderRadius: 10,
+    backgroundColor: "#26B865",
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 10,
-    color: "#d45500",
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#1A8A4A",
+  },
+
+  /* ── Meta info box ── */
+  metaBox: {
+    backgroundColor: "#E8F5ED",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: "#26B865",
+    gap: 3,
+  },
+  metaText: {
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 20,
+  },
+
+  /* ── Section headers ── */
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  sectionHeaderDot: {
+    width: 8, height: 8,
+    borderRadius: 4,
+    backgroundColor: "#26B865",
   },
   sectionHeader: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 15,
-    //marginBottom: 6,
-    color: "#ff8c00",
-  },
-  text: {
     fontSize: 14,
-    lineHeight: 20,
-    color: "#333",
+    fontWeight: "700",
+    color: "#1A8A4A",
+  },
+
+  /* ── Body text ── */
+  text: {
+    fontSize: 13.5,
+    lineHeight: 22,
+    color: "#374151",
   },
   bold: {
     fontWeight: "700",
+    color: "#1A2E22",
   },
 });

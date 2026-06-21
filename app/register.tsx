@@ -136,7 +136,7 @@ export default function RegisterScreen() {
           <View style={{ alignItems: "center", marginBottom: 15, }}>
             <View style={styles.logoContainer}>
               <Image
-                source={require("@/assets/images/SMART_PEOPLE_LOGO.png")}
+                source={require("@/assets/images/LOGO.png")}
                 style={{ width: 65, height: 65 }}
               />
             </View>

@@ -143,7 +143,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.container}>
           {/* HEADER */}
           <View style={styles.header}>
-            <Image source={require("@/assets/images/SMART_PEOPLE_LOGO.png")} style={styles.logo} />
+            <Image source={require("@/assets/images/LOGO.png")} style={styles.logo} />
 
             <View>
               <Text style={styles.appTitle}>Smart People</Text>

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1054780588098",
+    "project_id": "precisionvotingapp-50bfe",
+    "storage_bucket": "precisionvotingapp-50bfe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1054780588098:android:4ba8f8863459fd56b9eddb",
+        "android_client_info": {
+          "package_name": "com.developershandle.precisionvotingapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1054780588098-r18idhkemgjbd8opre45g3feq6jtdic2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzU-LE-ocKK81u7p1wX48pGl3WjoT1y9Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1054780588098-r18idhkemgjbd8opre45g3feq6jtdic2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

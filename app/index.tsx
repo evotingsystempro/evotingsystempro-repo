@@ -1,24 +1,29 @@
+//index.tsx
 import React, { useContext, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Platform } from "react-native";
+import { View, Text, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { GlobalContext } from "@/context";
 
 export default function IndexScreen() {
   const router = useRouter();
-
-  const {
-    isLoading,
-    userId,
-  } = useContext(GlobalContext);
-
+  const { isLoading, userId } = useContext(GlobalContext);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const hasNavigated = useRef(false); // ✅ prevents double navigation
 
-  // ------------------------------------------------
-  // Splash animations & navigation
-  // ------------------------------------------------
+  const navigate = () => {
+    if (hasNavigated.current) return;
+    hasNavigated.current = true;
+    if (!userId) {
+      router.replace("/loginHome");
+    } else {
+      router.replace("/chat/welcome");
+    }
+  };
+
+  // ── Entrance animation (runs once on mount) ──
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -33,7 +38,10 @@ export default function IndexScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+  }, []);
 
+  // ── Navigate when loading is done ──
+  useEffect(() => {
     if (isLoading) return;
 
     Animated.timing(fadeAnim, {
@@ -42,20 +50,20 @@ export default function IndexScreen() {
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (!finished) return;
-
-      if (!userId) {
-        //  console.log(":::::: No User ::::::");
-        router.replace("/loginHome");
-      } else {
-        // console.log(":::::: User exists xxx ::::::", { userId });
-        router.replace("/chat/welcome");
-      }
+      navigate();
     });
   }, [isLoading, userId]);
 
-  // ------------------------------------------------
-  // 🧩 UI
-  // ------------------------------------------------
+  // ── Safety timeout fallback (in case isLoading gets stuck in production) ──
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      navigate();
+    }, 6000); // 6 seconds max wait
+
+    return () => clearTimeout(timeout);
+  }, [userId]);
+
+  // ── UI ──
   return (
     <View style={styles.container}>
       <Animated.View
@@ -68,14 +76,11 @@ export default function IndexScreen() {
         ]}
       >
         <Ionicons name="shield-checkmark-sharp" size={50} color="#fd8c02ff" />
-        <Text style={styles.appName}>
-          {Platform.OS === "web" ? "Loading App..." : "Loading App..."}
-        </Text>
+        <Text style={styles.appName}>Loading App...</Text>
       </Animated.View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

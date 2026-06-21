@@ -38,6 +38,7 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+
 let auth: Auth;
 let db: Firestore;
 let rtdb: Database;

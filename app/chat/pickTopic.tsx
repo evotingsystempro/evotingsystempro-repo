@@ -511,7 +511,7 @@ export default function PickTopicScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.headerEyebrow}>Anser 5 questions & earn</Text>
+              <Text style={styles.headerEyebrow}>Answer 5 questions & earn</Text>
               <Text style={styles.headerTitle}>Pick A Topic</Text>
             </View>
 

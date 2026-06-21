@@ -1,20 +1,20 @@
 export default {
   expo: {
-    name: "Precision Voting App",
-    slug: "precisionvotingapp",
+    name: "Smart People",
+    slug: "smartpeople",
     version: "1.3.0",
     orientation: "portrait",
     icon: "./assets/images/round_icon.png",
-    scheme: "precisionvotingapp",
+    scheme: "smartpeople",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     notification: {
-      vapidPublicKey: "BJQoVFj-At3_o3aD_rTGa7fsMRwi48FT4YnQgh7LNibgrpeMczhBxo3eqrMlrR09afDoWFH7GGLxHEIfmTT-OWs",
+      vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_KEY ?? "",
       serviceWorkerPath: "./sw.js",
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.developershandle.precisionvotingapp",
+      bundleIdentifier: "com.developershandle.smartpeople",
       usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -25,7 +25,7 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#faf7f2ff",
       },
-      package: "com.developershandle.precisionvotingapp",
+      package: "com.developershandle.smartpeople",
       googleServicesFile: "./google-services.json",
     },
     web: {
@@ -35,7 +35,7 @@ export default {
       themeColor: "#000000",
     },
     plugins: [
-      ["expo-router", { origin: "https://precisionvotingapp.expo.app" }],
+      ["expo-router", { origin: "https://smartpeople.expo.app" }],
       [
         "expo-splash-screen",
         {
@@ -53,12 +53,12 @@ export default {
     },
     owner: "developershandle",
     extra: {
-      EXPO_PUBLIC_BASE_URL: "https://precisionvotingapp.expo.app",
+      EXPO_PUBLIC_BASE_URL: "https://smartpeople.expo.app",
       router: {
-        origin: "https://precisionvotingapp.expo.app",
+        origin: "https://smartpeople.expo.app",
       },
       eas: {
-        projectId: "2032dbcc-31f7-40d0-9590-94aad5dc5e25",
+        projectId: "f27f28d0-f2b1-452a-a5ab-22993310ad66",
       },
       expoConfig: {},
     },

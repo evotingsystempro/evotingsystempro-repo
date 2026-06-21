@@ -8,7 +8,7 @@ self.addEventListener("push", function (event) {
         data = event.data.json();
     }
 
-    const title = data.title || "Smart People";
+    const title = data.title || "Precision Voting App";
     const options = {
         body: data.body || "You have a new notification",
         icon: "/favicon.png",

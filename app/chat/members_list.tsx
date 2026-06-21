@@ -47,9 +47,7 @@ import ChatBanner from "@/components/ChatBanner";
 import * as Device from "expo-device";
 import * as Application from "expo-application";
 import { MenuProvider } from "react-native-popup-menu";
-//import { useProfileCompletion } from "@/components/CompleteProfileModal";
 import { useChatListListener } from "@/hooks/useChatListListener";
-import { useProfileCompletion, CACHE_KEY, SKIP_KEY } from "@/components/CompleteProfileModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,6 +74,8 @@ const ADMIN_EMAILS: ReadonlySet<string> = new Set([
   "stanleyafon6@gmail.com",
   "julietkpeku@gmail.com",
   "smartlearnerstech@gmail.com",
+  "evotingsystempro@gmail.com",
+  "evotingpro@gmail.com",
 ]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ async function readFpCache(): Promise<FpCacheEntry | null> {
 async function clearFpCache(): Promise<void> {
   try {
     await AsyncStorage.removeItem(FP_CACHE_KEY);
-  } catch { /* ignore */ }
+  } catch { }
 }
 
 // ─── Fingerprint gate ─────────────────────────────────────────────────────────
@@ -382,7 +382,6 @@ async function runFingerprintGateWithCache(email: string): Promise<FpGateResult>
       const snap = await getDoc(docRef);
 
       if (!snap.exists()) {
-        console.warn("FP cache hit but Firestore doc missing — falling back.");
         await clearFpCache();
       } else {
         const linkedEmail: string = snap.data().email;
@@ -450,21 +449,13 @@ function FingerprintBlockModal({
             <Text style={fpStyles.emailValue}>{linkedEmail}</Text>
           </View>
 
-          <TouchableOpacity
-            style={fpStyles.logoutBtn}
-            onPress={onLogout}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={fpStyles.logoutBtn} onPress={onLogout} activeOpacity={0.85}>
             <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
             <Text style={fpStyles.logoutText}>Sign out</Text>
           </TouchableOpacity>
 
           {isAdmin ? (
-            <TouchableOpacity
-              style={fpStyles.dismissBtn}
-              onPress={onDismiss}
-              activeOpacity={0.75}
-            >
+            <TouchableOpacity style={fpStyles.dismissBtn} onPress={onDismiss} activeOpacity={0.75}>
               <Text style={fpStyles.dismissText}>Admin: Dismiss</Text>
             </TouchableOpacity>
           ) : (
@@ -479,80 +470,15 @@ function FingerprintBlockModal({
 }
 
 const fpStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    width: "100%",
-    maxWidth: 300,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  iconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#faece0ff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  emailBlock: {
-    backgroundColor: "#fff5ec",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    marginBottom: 20,
-    width: "100%",
-  },
-  emailLabel: {
-    fontSize: 11,
-    color: "#aaa",
-    marginBottom: 3,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  emailValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#f97316",
-    textAlign: "center",
-  },
-  hint: {
-    fontSize: 12,
-    color: "#999",
-    textAlign: "center",
-    paddingHorizontal: 8,
-    lineHeight: 17,
-  },
-  logoutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f97316",
-    borderRadius: 12,
-    paddingVertical: 11,
-    paddingHorizontal: 32,
-    marginBottom: 14,
-    width: "100%",
-  },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  card: { backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 24, paddingVertical: 24, width: "100%", maxWidth: 300, alignItems: "center", borderWidth: 1, borderColor: "#eee" },
+  iconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#faece0ff", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  title: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", marginBottom: 12, textAlign: "center" },
+  emailBlock: { backgroundColor: "#fff5ec", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: "center", marginBottom: 20, width: "100%" },
+  emailLabel: { fontSize: 11, color: "#aaa", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 },
+  emailValue: { fontSize: 15, fontWeight: "700", color: "#f97316", textAlign: "center" },
+  hint: { fontSize: 12, color: "#999", textAlign: "center", paddingHorizontal: 8, lineHeight: 17 },
+  logoutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#f97316", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 32, marginBottom: 14, width: "100%" },
   logoutText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   dismissBtn: { paddingHorizontal: 20, paddingVertical: 4 },
   dismissText: { fontSize: 13, fontWeight: "600", color: "#ef4444" },
@@ -569,11 +495,7 @@ interface MemberListItemProps {
 }
 
 const MemberListItem = React.memo(function MemberListItem({
-  item,
-  userId,
-  isOnline,
-  onPress,
-  truncateMiddle,
+  item, userId, isOnline, onPress, truncateMiddle,
 }: MemberListItemProps) {
   const isCurrentUser = item.clientId === userId;
 
@@ -590,11 +512,7 @@ const MemberListItem = React.memo(function MemberListItem({
           resizeMode="cover"
         />
         {typeof item.iconUrl === "string" ? (
-          <Image
-            source={{ uri: item.iconUrl }}
-            style={itemStyles.avatarImage}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: item.iconUrl }} style={itemStyles.avatarImage} resizeMode="cover" />
         ) : (
           <View style={[itemStyles.avatarInitials, { backgroundColor: item.iconUrl?.color || "#ccc" }]}>
             <Text style={itemStyles.avatarLetter}>{item.iconUrl?.letter || "U"}</Text>
@@ -605,8 +523,7 @@ const MemberListItem = React.memo(function MemberListItem({
 
       <View style={itemStyles.textBlock}>
         <Text numberOfLines={1} style={itemStyles.name}>
-          {isCurrentUser ? "You: " : ""}
-          {item.clientName}
+          {isCurrentUser ? "You: " : ""}{item.clientName}
         </Text>
         <View style={itemStyles.metaRow}>
           <Text numberOfLines={1} style={itemStyles.email}>{truncateMiddle(item?.email, 0, 17)}</Text>
@@ -630,53 +547,17 @@ const MemberListItem = React.memo(function MemberListItem({
 });
 
 const itemStyles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#eee",
-    backgroundColor: "#fff",
-  },
+  container: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: "#eee", backgroundColor: "#fff" },
   currentUserBg: { backgroundColor: "#fef0e5" },
-  avatarRing: {
-    width: 55,
-    height: 55,
-    borderRadius: 50,
-    borderWidth: 1.5,
-    padding: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    overflow: "hidden",
-    backgroundColor: "#ffffff",
-  },
+  avatarRing: { width: 55, height: 55, borderRadius: 50, borderWidth: 1.5, padding: 2, alignItems: "center", justifyContent: "center", marginRight: 10, overflow: "hidden", backgroundColor: "#ffffff" },
   avatarPlaceholder: { width: "70%", height: "70%", position: "absolute" },
   avatarImage: { width: "100%", height: "100%", borderRadius: 25 },
-  avatarInitials: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  avatarInitials: { width: "100%", height: "100%", borderRadius: 25, alignItems: "center", justifyContent: "center" },
   avatarLetter: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  onlineDot: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#0ac213",
-    borderWidth: 1.5,
-    borderColor: "#fff",
-  },
+  onlineDot: { position: "absolute", top: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: "#0ac213", borderWidth: 1.5, borderColor: "#fff" },
   textBlock: { flex: 1, gap: 3 },
   name: { fontWeight: "600", fontSize: 17, color: "#1a1a1a" },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  phone: { fontSize: 12, color: "#555", maxWidth: 90 },
   email: { fontSize: 15, color: "#999", flex: 1 },
   timeBlock: { alignItems: "flex-end", gap: 4 },
   timeText: { fontSize: 11, color: "#888" },
@@ -694,11 +575,7 @@ interface HeaderProps {
 }
 
 const Header = React.memo(function Header({
-  counts,
-  onRefresh,
-  onClearSession,
-  searchText,
-  setSearchText,
+  counts, onRefresh, onClearSession, searchText, setSearchText,
 }: HeaderProps) {
   return (
     <View style={headerStyles.container}>
@@ -711,12 +588,7 @@ const Header = React.memo(function Header({
           >
             <Ionicons name="arrow-back" size={17} color="#f97316" />
           </TouchableOpacity>
-
-          <Image
-            source={require("@/assets/images/SMART_PEOPLE_LOGO.png")}
-            style={{ width: 50, height: 50 }}
-          />
-
+          <Image source={require("@/assets/images/LOGO.png")} style={{ width: 50, height: 50 }} />
           <View>
             <Text style={headerStyles.brandName}>SmartPeople</Text>
             <Text style={headerStyles.brandSub}>Community · {counts} members</Text>
@@ -724,11 +596,7 @@ const Header = React.memo(function Header({
         </View>
 
         <View style={headerStyles.rightActions}>
-          <TouchableOpacity
-            onPress={onRefresh}
-            style={headerStyles.walletBtn}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity onPress={onRefresh} style={headerStyles.walletBtn} activeOpacity={0.8}>
             <MaterialIcons name="account-balance-wallet" size={14} color="#fff" />
             <Text style={headerStyles.walletText}>Wallet</Text>
           </TouchableOpacity>
@@ -743,27 +611,13 @@ const Header = React.memo(function Header({
       </View>
 
       <View style={headerStyles.row2}>
-        <TouchableOpacity
-          onPress={() => router.navigate("./buy_reset_credit_screen")}
-          style={headerStyles.creditBtn}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity onPress={() => router.navigate("./buy_reset_credit_screen")} style={headerStyles.creditBtn} activeOpacity={0.8}>
           <Ionicons name="add-circle-outline" size={15} color="#fff" />
           <Text style={headerStyles.actionBtnText}>Buy Credit</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: "/chat/chat_room",
-              params: {
-                clientName: "Lydia Fauson",
-                clientUriLetter: "",
-                clientUriColor: "",
-                clientIconUri: "ai_image",
-              },
-            })
-          }
+          onPress={() => router.push({ pathname: "/chat/chat_room", params: { clientName: "Lydia Fauson", clientUriLetter: "", clientUriColor: "", clientIconUri: "ai_image" } })}
           style={headerStyles.helpBtn}
           activeOpacity={0.8}
         >
@@ -785,22 +639,13 @@ const Header = React.memo(function Header({
             autoCapitalize="none"
           />
           {searchText.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchText("")}
-              style={headerStyles.clearBtn}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
+            <TouchableOpacity onPress={() => setSearchText("")} style={headerStyles.clearBtn} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
               <Ionicons name="close-circle" size={15} color="#ccc" />
             </TouchableOpacity>
           )}
         </View>
 
-        <TouchableOpacity
-          style={headerStyles.logoutBtn}
-          onPress={onClearSession}
-          activeOpacity={0.8}
-          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-        >
+        <TouchableOpacity style={headerStyles.logoutBtn} onPress={onClearSession} activeOpacity={0.8} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
           <Ionicons name="log-out-outline" size={15} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -809,165 +654,36 @@ const Header = React.memo(function Header({
 });
 
 const headerStyles = StyleSheet.create({
-  container: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#e8e8e8",
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  row1: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
+  container: { backgroundColor: "#fff", borderBottomWidth: 0.5, borderBottomColor: "#e8e8e8", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
+  row1: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   brand: { flexDirection: "row", alignItems: "center", gap: 5 },
-  backBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 16,
-    backgroundColor: "#f9e2cdff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  backBtn: { width: 30, height: 30, borderRadius: 16, backgroundColor: "#f9e2cdff", alignItems: "center", justifyContent: "center" },
   brandName: { fontSize: 20, fontWeight: "700", color: "#f97316", letterSpacing: -0.3 },
   brandSub: { fontSize: 10, color: "#aaa", marginTop: -1 },
   rightActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  walletBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "#16a34a",
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-  },
+  walletBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#16a34a", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12 },
   walletText: { color: "#fff", fontWeight: "600", fontSize: 15 },
-
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 9,
-    paddingHorizontal: 4,
-  },
+  divider: { flexDirection: "row", alignItems: "center", marginBottom: 9, paddingHorizontal: 4 },
   dividerLine: { flex: 1, height: 0.5, backgroundColor: "#f97316" },
-  dividerDot: {
-    width: 60,
-    height: 6,
-    borderRadius: 10,
-    backgroundColor: "#ddd",
-    marginHorizontal: 6,
-  },
-
-  row2: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginBottom: 4,
-  },
-  creditBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "#ef4444",
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 10, paddingRight: 12,
-  },
-  helpBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "#f59e0b",
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 12, paddingRight: 15,
-  },
+  dividerDot: { width: 60, height: 6, borderRadius: 10, backgroundColor: "#ddd", marginHorizontal: 6 },
+  row2: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 4 },
+  creditBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#ef4444", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 10, paddingRight: 12 },
+  helpBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#f59e0b", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, paddingRight: 15 },
   actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 20,
-    backgroundColor: "#f9fafb",
-    paddingHorizontal: 8,
-    width: 95,
-  },
+  searchWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 20, backgroundColor: "#f9fafb", paddingHorizontal: 8, width: 95 },
   searchIcon: { marginRight: 3 },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: "#333",
-    paddingVertical: 5,
-    minWidth: 0,
-    ...(Platform.OS === "web" && {
-      outlineStyle: "none",
-      outlineWidth: 0,
-    } as any),
-  },
+  searchInput: { flex: 1, fontSize: 13, color: "#333", paddingVertical: 5, minWidth: 0, ...(Platform.OS === "web" && { outlineStyle: "none", outlineWidth: 0 } as any) },
   clearBtn: { padding: 2 },
-
-  logoutBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#ef4444",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  logoutBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
 });
 
-// ─── Earn Real Cash Button ────────────────────────────────────────────────────
+// ─── Earn Real Cash Button styles ─────────────────────────────────────────────
 
 const earnStyles = StyleSheet.create({
-  floatContainer: {
-    position: "absolute",
-    bottom: 90, // sits just above BottomNav
-    left: 20,
-    right: 20,
-    alignItems: "center",
-    zIndex: 99,
-    pointerEvents: "box-none" as any,
-  },
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 30,
-    paddingVertical: 13,
-    paddingHorizontal: 32,
-    width: "70%",
-    maxWidth: 320,
-    overflow: "hidden",
-    backgroundColor: "#16a34a",
-    shadowColor: "#16a34a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  shimmer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 30,
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.25)",
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 16,
-    letterSpacing: 0.3,
-  },
+  floatContainer: { position: "absolute", bottom: 90, left: 20, right: 20, alignItems: "center", zIndex: 99, pointerEvents: "box-none" as any },
+  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 30, paddingVertical: 13, paddingHorizontal: 32, width: "70%", maxWidth: 320, overflow: "hidden", backgroundColor: "#16a34a", shadowColor: "#16a34a", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8 },
+  shimmer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, backgroundColor: "transparent", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.25)" },
+  btnText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.3 },
 });
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -975,30 +691,13 @@ const earnStyles = StyleSheet.create({
 export default function MembersList() {
   const { logout } = useLogout();
   const {
-    unreadCount,
-    userName,
-    userPassword,
-    rawUserEmail,
-    userId,
-    userPhotoUrl,
-    hasUnreadMessages,
-    clientsOnlineStatus,
-    clientLastUnreadMsgId,
-    app_update_status,
-    setApp_update_status,
-    app_update_description,
-    app_update_version,
-    app_update_title,
+    userName, userPassword, rawUserEmail, userId, userPhotoUrl,
+    clientsOnlineStatus, app_update_status, setApp_update_status,
+    app_update_description, app_update_version, app_update_title,
     setTraditionalAuth,
   } = useContext(GlobalContext);
 
   const { contacts } = useChatListListener(userId);
-  const unreadChatsCount = useMemo(
-    () => contacts.filter((c) => c.unreadCount > 0).length,
-    [contacts]
-  );
-
-  const { requireComplete } = useProfileCompletion();
   const isConnectedNET = useNetworkStatus();
   const { signOut } = useAuth();
   const { members, loading } = useMembersListener();
@@ -1010,7 +709,6 @@ export default function MembersList() {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [dismissedMsgIds, setDismissedMsgIds] = useState<Set<string>>(new Set());
   const [fpBlocked, setFpBlocked] = useState(false);
   const [fpLinkedEmail, setFpLinkedEmail] = useState("");
 
@@ -1044,14 +742,7 @@ export default function MembersList() {
   }, [debouncedSearch]);
 
   useEffect(() => {
-    AsyncStorage.getItem("DISMISSED_BANNERS").then((val) => {
-      if (val) setDismissedMsgIds(new Set(JSON.parse(val)));
-    });
-  }, []);
-
-  useEffect(() => {
     if (!rawUserEmail) return;
-
     const normalizedEmail = rawUserEmail.trim().toLowerCase();
 
     (async () => {
@@ -1059,33 +750,25 @@ export default function MembersList() {
         const stored = await AsyncStorage.getItem(DEVICE_VERIFIED_KEY);
         if (stored) {
           const { email, verifiedAt } = JSON.parse(stored);
-          const isValid =
-            email === normalizedEmail &&
-            Date.now() - verifiedAt < FP_CACHE_TTL_MS;
+          const isValid = email === normalizedEmail && Date.now() - verifiedAt < FP_CACHE_TTL_MS;
 
           if (isValid) {
             setDeviceCheckDone(true);
-
             const cached = await readFpCache();
             if (cached) {
               const docRef = doc(db, HYBRID_FP_COLLECTION, cached.fingerprintHash);
-              getDoc(docRef)
-                .then((snap) => {
-                  if (!snap.exists() || snap.data().email !== normalizedEmail) {
-                    clearFpCache();
-                    AsyncStorage.removeItem(DEVICE_VERIFIED_KEY);
-                    setFpLinkedEmail(snap.exists() ? snap.data().email : "");
-                    setFpBlocked(true);
-                  } else {
-                    updateDoc(docRef, { lastSeen: serverTimestamp() }).catch(() => { });
-                    writeFpCache({ fingerprintHash: cached.fingerprintHash, email: normalizedEmail, source: cached.source }).catch(() => { });
-                    AsyncStorage.setItem(
-                      DEVICE_VERIFIED_KEY,
-                      JSON.stringify({ email: normalizedEmail, verifiedAt: Date.now() })
-                    );
-                  }
-                })
-                .catch(() => { });
+              getDoc(docRef).then((snap) => {
+                if (!snap.exists() || snap.data().email !== normalizedEmail) {
+                  clearFpCache();
+                  AsyncStorage.removeItem(DEVICE_VERIFIED_KEY);
+                  setFpLinkedEmail(snap.exists() ? snap.data().email : "");
+                  setFpBlocked(true);
+                } else {
+                  updateDoc(docRef, { lastSeen: serverTimestamp() }).catch(() => { });
+                  writeFpCache({ fingerprintHash: cached.fingerprintHash, email: normalizedEmail, source: cached.source }).catch(() => { });
+                  AsyncStorage.setItem(DEVICE_VERIFIED_KEY, JSON.stringify({ email: normalizedEmail, verifiedAt: Date.now() }));
+                }
+              }).catch(() => { });
             }
             return;
           }
@@ -1098,10 +781,7 @@ export default function MembersList() {
           setFpLinkedEmail(result.linkedEmail);
           setFpBlocked(true);
         } else {
-          await AsyncStorage.setItem(
-            DEVICE_VERIFIED_KEY,
-            JSON.stringify({ email: normalizedEmail, verifiedAt: Date.now() })
-          );
+          await AsyncStorage.setItem(DEVICE_VERIFIED_KEY, JSON.stringify({ email: normalizedEmail, verifiedAt: Date.now() }));
         }
       } catch (err) {
         console.warn("FP gate failed (failing open):", err);
@@ -1118,16 +798,13 @@ export default function MembersList() {
 
   useEffect(() => {
     if (!userId || !deviceId) return;
-    const unsubscribe = onSnapshot(
-      doc(db, "user_sessions", userId),
-      (snap) => {
-        if (!snap.exists()) return;
-        if (snap.data().activeDeviceId !== deviceId) {
-          logout();
-          router.replace("/");
-        }
+    const unsubscribe = onSnapshot(doc(db, "user_sessions", userId), (snap) => {
+      if (!snap.exists()) return;
+      if (snap.data().activeDeviceId !== deviceId) {
+        logout();
+        router.replace("/");
       }
-    );
+    });
     return unsubscribe;
   }, [userId, deviceId, logout]);
 
@@ -1180,20 +857,11 @@ export default function MembersList() {
             const scoreboardSnap = await getDoc(scoreboardRef);
             if (!scoreboardSnap.exists()) {
               await setDoc(scoreboardRef, {
-                sub: userId,
-                user: userName || "Unknown",
-                email: userId,
-                userPhotoUrl: userPhotoUrl || "",
-                currentCorrectScore: "0",
-                estimatedTotalScore: "0",
-                totalScore: "0",
-                totalWrongScore: "0",
-                likes: 0,
-                dislikes: 0,
-                hearts: 0,
-                status: "online",
-                timestamp: now,
-                createdAt: serverTimestamp(),
+                sub: userId, user: userName || "Unknown", email: userId,
+                userPhotoUrl: userPhotoUrl || "", currentCorrectScore: "0",
+                estimatedTotalScore: "0", totalScore: "0", totalWrongScore: "0",
+                likes: 0, dislikes: 0, hearts: 0, status: "online",
+                timestamp: now, createdAt: serverTimestamp(),
               });
             }
           } catch (err) {
@@ -1225,26 +893,11 @@ export default function MembersList() {
         const walletSnap = await getDoc(walletRef);
         if (!walletSnap.exists()) {
           await setDoc(walletRef, {
-            email: userId,
-            free_reset_credit: 15,
-            monthly_subscription_plan: {
-              expires_at: null,
-              is_active: false,
-              is_suspended: false,
-              last_purchased_at: null,
-              started_at: null,
-              suspension_started_at: null,
-              total_purchases: 0,
-            },
-            pay_as_you_go: { date_subscribed: null },
-            plan_id: "",
-            transaction_type: "",
-            previous_balance: null,
-            current_balance: null,
-            transaction_amount: null,
-            currency: "GHS",
-            payment_method: "system transfer",
-            createdAt: serverTimestamp(),
+            email: userId, free_reset_credit: 15,
+            monthly_subscription_plan: { expires_at: null, is_active: false, is_suspended: false, last_purchased_at: null, started_at: null, suspension_started_at: null, total_purchases: 0 },
+            pay_as_you_go: { date_subscribed: null }, plan_id: "", transaction_type: "",
+            previous_balance: null, current_balance: null, transaction_amount: null,
+            currency: "GHS", payment_method: "system transfer", createdAt: serverTimestamp(),
           });
         }
       } catch (err) {
@@ -1252,21 +905,6 @@ export default function MembersList() {
       }
     })();
   }, [userId, deviceId, isConnectedNET]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const timer = setTimeout(async () => {
-      const alreadySkipped = await AsyncStorage.getItem(SKIP_KEY(userId));
-      const alreadyComplete = await AsyncStorage.getItem(CACHE_KEY(userId));
-
-      if (!alreadySkipped && !alreadyComplete) {
-        requireComplete();
-      }
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [userId]);
 
   const visibleMembers = useMemo<MemberItem[]>(() => {
     if (!members?.length) return [];
@@ -1293,14 +931,7 @@ export default function MembersList() {
   const currentUser = useMemo<MemberItem | null>(() => {
     const member = members?.find((m) => m.clientId === userId);
     if (!member) return null;
-    return {
-      clientId: member.clientId,
-      clientName: member.clientName,
-      email: member.email,
-      iconUrl: member.iconUrl,
-      phone: member.phone,
-      ...member,
-    } as MemberItem;
+    return { clientId: member.clientId, clientName: member.clientName, email: member.email, iconUrl: member.iconUrl, phone: member.phone, ...member } as MemberItem;
   }, [members, userId]);
 
   const handleClearSession = useCallback(async () => {
@@ -1377,10 +1008,7 @@ export default function MembersList() {
     [clientsOnlineStatus, userId, navigateToChat, truncateMiddle]
   );
 
-  const keyExtractor = useCallback(
-    (item: MemberItem) => item.clientId ?? item.id,
-    []
-  );
+  const keyExtractor = useCallback((item: MemberItem) => item.clientId ?? item.id, []);
 
   const ListHeader = useMemo(() => {
     if (!currentUser) return null;
@@ -1396,10 +1024,7 @@ export default function MembersList() {
   }, [currentUser, userId, navigateToChat, truncateMiddle]);
 
   const ListFooter = useMemo(
-    () =>
-      loading ? (
-        <ActivityIndicator size="small" color="#fd7506" style={{ paddingVertical: 16 }} />
-      ) : null,
+    () => loading ? <ActivityIndicator size="small" color="#fd7506" style={{ paddingVertical: 16 }} /> : null,
     [loading]
   );
 
@@ -1413,14 +1038,17 @@ export default function MembersList() {
     []
   );
 
+  const setApp_update_status_action = () => {
+    setApp_update_status(Platform.OS === "web" ? false : !isConnectedNET ? false : true)
+    router.replace("/");
+  }
+
   if (!deviceCheckDone || showLoader) {
     return (
       <ReusableScreen>
         <View style={globalStyles.loaderContainer}>
           <ActivityIndicator size="large" color="#F97316" />
-          {!deviceCheckDone && (
-            <Text style={globalStyles.loaderText}>Verifying device…</Text>
-          )}
+          {!deviceCheckDone && <Text style={globalStyles.loaderText}>Verifying device…</Text>}
         </View>
       </ReusableScreen>
     );
@@ -1439,19 +1067,17 @@ export default function MembersList() {
           onLogout={handleClearSession}
         />
 
+
+
         <AnnouncementModalComponentAppUpdate
           visible={app_update_status}
-          app_update_title={app_update_title ? app_update_title : "Fetching update info…"}
+          app_update_title={app_update_title ? app_update_title : "Update info…"}
           app_update_description={
             app_update_description
               ? app_update_description
               : "We're having trouble reaching our servers. Please check your internet connection and try again."
           }
-          onCancel={() =>
-            setApp_update_status(
-              Platform.OS === "web" ? false : !isConnectedNET ? false : true
-            )
-          }
+          onCancel={() => setApp_update_status_action()}
           confirmText="View Profile"
           cancelText="Dismiss"
           confirmColor="#f59e0b"
@@ -1491,11 +1117,7 @@ export default function MembersList() {
           />
 
           <View style={earnStyles.floatContainer} pointerEvents="box-none">
-            <TouchableOpacity
-              style={earnStyles.btn}
-              onPress={() => router.navigate("./pickTopic")}
-              activeOpacity={0.82}
-            >
+            <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./pickTopic")} activeOpacity={0.82}>
               <View style={earnStyles.shimmer} />
               <Ionicons name="cash-outline" size={18} color="#fff" style={{ marginRight: 7 }} />
               <Text style={earnStyles.btnText}>Earn Real Cash</Text>
@@ -1509,15 +1131,8 @@ export default function MembersList() {
   );
 }
 
-// ─── Shared / Global Styles ───────────────────────────────────────────────────
-
 const globalStyles = StyleSheet.create({
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
   loaderText: { color: "#aaa", marginTop: 12, fontSize: 13 },
   emptyContainer: { paddingVertical: 48, alignItems: "center", gap: 10 },
   emptyText: { color: "#bbb", fontSize: 15 },
