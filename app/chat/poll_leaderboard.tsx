@@ -275,7 +275,7 @@ export default function PollLeaderboardScreen() {
     // Add this ref alongside the others at the top of the component
     const sortedRef = useRef<Aspirant[]>([]);
 
-    // ── Derived ───────────────────────────────────────────────────────────────────
+    // ── Derived ───────────────────────────────────────────────────
 
     const alreadyVoted = votedEmails.length > 0;
     const expired = isExpired(poll?.deadline ?? null);
@@ -293,7 +293,7 @@ export default function PollLeaderboardScreen() {
         return next;
     })();
 
-    // ── Loading ───────────────────────────────────────────────────────────────
+    // ── Loading ───────────────────────────────────────────────
 
     if (loading) {
         return (
