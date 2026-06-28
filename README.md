@@ -1,4 +1,4 @@
-# Precision Voting App 🗳️
+# eVoting System Pro 🗳️
 
 > Secure · Transparent · Precise
 
@@ -6,7 +6,7 @@
 
 ### Project Overview
 
-**Precision Voting App** is a digital voting platform built with **React Native (Expo)** and **Firebase**. It allows organizers to create and run secure, verifiable polls and elections — from single-choice leadership votes to multi-candidate committee elections — with real-time results and built-in fraud prevention.
+**eVoting System Pro** is a digital voting platform built with **React Native (Expo)** and **Firebase**. It allows organizers to create and run secure, verifiable polls and elections — from single-choice leadership votes to multi-candidate committee elections — with real-time results and built-in fraud prevention.
 
 ---
 
@@ -32,9 +32,7 @@
 - ✅ JWT-based token management (for native apps)
 - ✅ Firebase Realtime Database for live presence & status tracking
 - ✅ AI-powered Customer Support System
-
-* ✅ Real-Time Chat System
-
+- ✅ Real-Time Chat System
 - ✅ Real-time online/offline presence detection (`onDisconnect` / `onValue`)
 - ✅ Push notifications via Expo Notifications
 - ✅ Persistent local session caching with `AsyncStorage`
@@ -43,10 +41,12 @@
 - ✅ Session reset / clean logout flow with full storage cleanup
 - ✅ OTA app updates via `expo-updates`
 
+---
+
 ## Project Structure
 
 ```
-precisionvotingapp/
+evotingsystempro/
 ├── app/                  # Expo Router screens
 │   ├── welcome.tsx       # Landing screen, features card, session/auth logic
 │   └── ...
@@ -126,4 +126,4 @@ Create a `.env` file in the root directory with your Firebase project credential
 
 ## 📄 License
 
-Private & Proprietary — All rights reserved © Precision Voting App
+Private & Proprietary — All rights reserved © eVoting System Pro
