@@ -50,10 +50,13 @@ const toDateInputValue = (d: Date) =>
 const toTimeInputValue = (d: Date) =>
   `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
+const AVATAR_PALETTE = ["#1F9F4E", "#2563EB", "#D97706", "#7C3AED", "#DB2777", "#0D9488", "#DC2626", "#0891B2"];
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function CreatePollScreen() {
   const { userName, rawUserEmail } = useContext(GlobalContext);
+  const scrollRef = React.useRef<ScrollView>(null);
 
   const [title, setTitle] = useState("");
   const [pollType, setPollType] = useState<PollType>("single");
@@ -74,6 +77,9 @@ export default function CreatePollScreen() {
   // Inline deadline picker
   const [showDeadlinePicker, setShowDeadlinePicker] = useState(false);
   const [pendingDate, setPendingDate] = useState<Date>(new Date());
+
+  // Post-publish success state
+  const [publishedTitle, setPublishedTitle] = useState<string | null>(null);
 
   // ── Aspirant helpers ────────────────────────────────────────────────────────
 
@@ -220,6 +226,12 @@ export default function CreatePollScreen() {
     aspirants.every((a) => a.name.trim().length > 0 && isValidEmail(a.email)) &&
     duplicateEmails.length === 0;
 
+  // ── Derived progress (UI only) ──────────────────────────────────────────────
+
+  const aspirantsValidCount = aspirants.filter(
+    (a) => a.name.trim().length > 0 && isValidEmail(a.email)
+  ).length;
+
   // ── Publish ─────────────────────────────────────────────────────────────────
   //
   // Writes to:
@@ -299,15 +311,22 @@ export default function CreatePollScreen() {
         })
       );
 
-      Alert.alert("Poll published!", `"${title.trim()}" is now live.`, [
-        { text: "OK", onPress: () => router.navigate("./polls_list") },
-      ]);
+      setPublishedTitle(title.trim());
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     } catch (err) {
       console.error("Publish failed:", err);
       Alert.alert("Error", "Failed to publish poll. Please try again.");
     } finally {
       setPublishing(false);
     }
+  };
+
+  const handleViewPoll = () => {
+    router.navigate("./PollsListScreen");
+  };
+
+  const handleDone = () => {
+    router.navigate("./members_list");
   };
 
   // ── UI ───────────────────────────────────────────────────────────────────────
@@ -332,6 +351,7 @@ export default function CreatePollScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -341,293 +361,372 @@ export default function CreatePollScreen() {
             Complete the fields below to set up your poll.
           </Text>
 
-          {/* ── Poll details ── */}
-          <Text style={styles.sectionLabel}>Poll details</Text>
-
-          <Text style={styles.fieldLabel}>Title *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. SRC Presidential Poll, HTU"
-            placeholderTextColor="#b0b0b0"
-            value={title}
-            onChangeText={setTitle}
-            maxLength={120}
-            returnKeyType="next"
-          />
-
-          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>
-            Logo <Text style={styles.optional}>(Optional)</Text>
-          </Text>
-
-          {/* Logo preview */}
-          {logoUri ? (
-            <View style={styles.logoPreviewWrap}>
-              <Image source={{ uri: logoUri }} style={styles.logoPreview} resizeMode="cover" />
-              {uploadingLogo && (
-                <View style={styles.logoUploadOverlay}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.logoUploadText}>Uploading…</Text>
+          {publishedTitle && (
+            <View style={styles.successBanner}>
+              <View style={styles.successHeaderRow}>
+                <View style={styles.successIconWrap}>
+                  <Ionicons name="checkmark-circle" size={22} color="#1F9F4E" />
                 </View>
-              )}
-              {!uploadingLogo && (
-                <TouchableOpacity style={styles.logoRemoveBtn} onPress={removeLogo}>
-                  <Ionicons name="close-circle" size={22} color="#ef4444" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.successTitle}>Poll published!</Text>
+                  <Text style={styles.successDesc} numberOfLines={1}>
+                    "{publishedTitle}" is now live.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Two-in-one segmented button */}
+              <View style={styles.segmentedBtn}>
+                <TouchableOpacity
+                  style={styles.segmentLeft}
+                  onPress={handleViewPoll}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="eye-outline" size={14} color="#fff" />
+                  <Text style={styles.segmentLeftText}>VIEW POLL</Text>
                 </TouchableOpacity>
-              )}
+                <View style={styles.segmentDivider} />
+                <TouchableOpacity
+                  style={styles.segmentRight}
+                  onPress={handleDone}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.segmentRightText}>DONE</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ) : (
-            <TouchableOpacity style={styles.logoRow} onPress={pickLogo} activeOpacity={0.7}>
-              <Ionicons name="image-outline" size={18} color="#1F9F4E" />
-              <Text style={styles.logoText}>Tap to add logo or banner image</Text>
-            </TouchableOpacity>
           )}
 
-          <View style={styles.sectionDivider} />
-
-          {/* ── Poll type ── */}
-          <Text style={styles.sectionLabel}>Poll type</Text>
-
-          <TouchableOpacity
-            style={[styles.radioRow, pollType === "single" && styles.radioRowActive]}
-            onPress={() => setPollType("single")}
-            activeOpacity={0.8}
-          >
-            <View style={styles.radioOuter}>
-              {pollType === "single" && <View style={styles.radioInner} />}
+          {/* ── Poll details card ── */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionIconWrap, { backgroundColor: "#EAF6EE" }]}>
+                <Ionicons name="document-text-outline" size={15} color="#1F9F4E" />
+              </View>
+              <Text style={styles.sectionLabel}>Poll details</Text>
             </View>
-            <View style={styles.radioText}>
-              <Text style={[styles.radioTitle, pollType === "single" && styles.radioTitleActive]}>
-                Single-Vote
-              </Text>
-              <Text style={styles.radioDesc}>Each voter casts exactly one vote.</Text>
-            </View>
-            {pollType === "single" && (
-              <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
-            )}
-          </TouchableOpacity>
 
-          <View style={styles.dividerThin} />
+            <Text style={styles.fieldLabel}>Title *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. HTU-SRC Presidential Poll, 2026"
+              placeholderTextColor="#b0b0b0"
+              value={title}
+              onChangeText={setTitle}
+              maxLength={120}
+              returnKeyType="next"
+            />
 
-          <TouchableOpacity
-            style={[styles.radioRow, pollType === "multiple" && styles.radioRowActive]}
-            onPress={() => setPollType("multiple")}
-            activeOpacity={0.8}
-          >
-            <View style={styles.radioOuter}>
-              {pollType === "multiple" && <View style={styles.radioInner} />}
-            </View>
-            <View style={styles.radioText}>
-              <Text style={[styles.radioTitle, pollType === "multiple" && styles.radioTitleActive]}>
-                Multiple-Voting
-              </Text>
-              <Text style={styles.radioDesc}>Each voter can vote for more than one aspirant.</Text>
-            </View>
-            {pollType === "multiple" && (
-              <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
-            )}
-          </TouchableOpacity>
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>
+              Logo <Text style={styles.optional}>(Optional)</Text>
+            </Text>
 
-          <View style={styles.sectionDivider} />
-
-          {/* ── Aspirants ── */}
-          <Text style={styles.sectionLabel}>Aspirants</Text>
-          <Text style={styles.fieldHint}>
-            Add candidates with their name and email (min 2, max 10)
-          </Text>
-
-          {aspirants.map((asp, index) => (
-            <View key={asp.id}>
-              <View style={styles.aspirantHeaderRow}>
-                <View style={styles.optionIndex}>
-                  <Text style={styles.optionIndexText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.aspirantLabel}>Aspirant {index + 1}</Text>
-                {aspirants.length > 2 && (
-                  <TouchableOpacity
-                    onPress={() => removeAspirant(asp.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="close-circle" size={20} color="#d1d5db" />
+            {/* Logo preview */}
+            {logoUri ? (
+              <View style={styles.logoPreviewWrap}>
+                <Image source={{ uri: logoUri }} style={styles.logoPreview} resizeMode="cover" />
+                {uploadingLogo && (
+                  <View style={styles.logoUploadOverlay}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.logoUploadText}>Uploading…</Text>
+                  </View>
+                )}
+                {!uploadingLogo && (
+                  <TouchableOpacity style={styles.logoRemoveBtn} onPress={removeLogo}>
+                    <Ionicons name="close-circle" size={22} color="#ef4444" />
                   </TouchableOpacity>
                 )}
               </View>
-
-              <Text style={styles.subFieldLabel}>Full Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. John Mensah"
-                placeholderTextColor="#b0b0b0"
-                value={asp.name}
-                onChangeText={(t) => updateAspirant(asp.id, "name", t)}
-                maxLength={80}
-                returnKeyType="next"
-              />
-
-              <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>Email Address *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  asp.email.trim() && !isValidEmail(asp.email) && styles.inputError,
-                  duplicateEmails.includes(asp.email.trim().toLowerCase()) && styles.inputError,
-                ]}
-                placeholder="e.g. john@example.com"
-                placeholderTextColor="#b0b0b0"
-                value={asp.email}
-                onChangeText={(t) => updateAspirant(asp.id, "email", t)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                maxLength={120}
-                returnKeyType="next"
-              />
-              {asp.email.trim() && !isValidEmail(asp.email) && (
-                <Text style={styles.errorText}>Invalid email address</Text>
-              )}
-              {duplicateEmails.includes(asp.email.trim().toLowerCase()) && (
-                <Text style={styles.errorText}>
-                  Duplicate — each aspirant must have a unique email
-                </Text>
-              )}
-
-              {index < aspirants.length - 1 && (
-                <View style={[styles.dividerThin, { marginTop: 16 }]} />
-              )}
-            </View>
-          ))}
-
-          {aspirants.length < 10 && (
-            <TouchableOpacity style={styles.addOptionBtn} onPress={addAspirant}>
-              <Ionicons name="add-circle-outline" size={16} color="#1F9F4E" />
-              <Text style={styles.addOptionText}>Add aspirant</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.sectionDivider} />
-
-          {/* ── Settings ── */}
-          <Text style={styles.sectionLabel}>Settings</Text>
-
-          <Text style={styles.fieldLabel}>
-            Voting deadline <Text style={styles.optional}>(Optional)</Text>
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.deadlineRow, deadline ? styles.deadlineRowActive : null]}
-            onPress={openDeadlinePicker}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={16} color="#1F9F4E" />
-            <Text style={[styles.deadlineText, deadline ? styles.deadlineTextActive : null]}>
-              {deadline ? deadline.toLocaleString() : "Set end date & time"}
-            </Text>
-            {deadline && (
-              <TouchableOpacity
-                onPress={() => setDeadline(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close-circle" size={16} color="#9ca3af" />
+            ) : (
+              <TouchableOpacity style={styles.logoRow} onPress={pickLogo} activeOpacity={0.7}>
+                <Ionicons name="image-outline" size={18} color="#1F9F4E" />
+                <Text style={styles.logoText}>Tap to add logo or banner image</Text>
               </TouchableOpacity>
             )}
-          </TouchableOpacity>
-
-          {/* Inline deadline picker */}
-          {showDeadlinePicker && (
-            <View style={styles.inlinePickerBox}>
-              <Text style={styles.inlinePickerPreview}>
-                {pendingDate.toLocaleString()}
-              </Text>
-
-              {Platform.OS === "ios" && (
-                <DateTimePicker
-                  value={pendingDate}
-                  mode="datetime"
-                  display="spinner"
-                  onChange={handleNativeDateTimeChange}
-                  minimumDate={new Date()}
-                  style={{ width: "100%" }}
-                />
-              )}
-
-              {Platform.OS === "android" && (
-                <View style={styles.androidPickersRow}>
-                  <DateTimePicker
-                    value={pendingDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleAndroidDateChange}
-                    minimumDate={new Date()}
-                    style={styles.androidSpinner}
-                  />
-                  <DateTimePicker
-                    value={pendingDate}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleAndroidTimeChange}
-                    style={styles.androidSpinner}
-                  />
-                </View>
-              )}
-
-              {Platform.OS === "web" && (
-                <View style={styles.webPickersRow}>
-                  <input
-                    type="date"
-                    value={toDateInputValue(pendingDate)}
-                    min={toDateInputValue(new Date())}
-                    onChange={handleWebDateChange}
-                    style={webInputStyle}
-                  />
-                  <input
-                    type="time"
-                    value={toTimeInputValue(pendingDate)}
-                    onChange={handleWebTimeChange}
-                    style={webInputStyle}
-                  />
-                </View>
-              )}
-
-              <View style={styles.inlinePickerActions}>
-                <TouchableOpacity onPress={cancelDeadline} style={styles.inlineCancelBtn}>
-                  <Text style={styles.inlineCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={confirmDeadline} style={styles.inlineDoneBtn}>
-                  <Text style={styles.inlineDoneText}>Done</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.dividerThin} />
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleText}>
-              <Text style={styles.toggleLabel}>Anonymous voting</Text>
-              <Text style={styles.toggleDesc}>
-                Voter identities will be hidden from results.
-              </Text>
-            </View>
-            <Switch
-              value={isAnonymous}
-              onValueChange={setIsAnonymous}
-              trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
-              thumbColor={isAnonymous ? "#1F9F4E" : "#9ca3af"}
-            />
           </View>
 
-          <View style={styles.dividerThin} />
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleText}>
-              <Text style={styles.toggleLabel}>Show live results</Text>
-              <Text style={styles.toggleDesc}>
-                Voters can see results as voting progresses.
-              </Text>
+          {/* ── Poll type card ── */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionIconWrap, { backgroundColor: "#EAF6EE" }]}>
+                <Ionicons name="options-outline" size={15} color="#1F9F4E" />
+              </View>
+              <Text style={styles.sectionLabel}>Poll type</Text>
             </View>
-            <Switch
-              value={showResults}
-              onValueChange={setShowResults}
-              trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
-              thumbColor={showResults ? "#1F9F4E" : "#9ca3af"}
-            />
+
+            <TouchableOpacity
+              style={[styles.radioRow, pollType === "single" && styles.radioRowActive]}
+              onPress={() => setPollType("single")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.radioOuter}>
+                {pollType === "single" && <View style={styles.radioInner} />}
+              </View>
+              <View style={styles.radioText}>
+                <Text style={[styles.radioTitle, pollType === "single" && styles.radioTitleActive]}>
+                  Single-Vote
+                </Text>
+                <Text style={styles.radioDesc}>Each voter casts exactly one vote.</Text>
+              </View>
+              {pollType === "single" && (
+                <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerThin} />
+
+            <TouchableOpacity
+              style={[styles.radioRow, pollType === "multiple" && styles.radioRowActive]}
+              onPress={() => setPollType("multiple")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.radioOuter}>
+                {pollType === "multiple" && <View style={styles.radioInner} />}
+              </View>
+              <View style={styles.radioText}>
+                <Text style={[styles.radioTitle, pollType === "multiple" && styles.radioTitleActive]}>
+                  Multiple-Voting
+                </Text>
+                <Text style={styles.radioDesc}>Each voter can vote for more than one aspirant.</Text>
+              </View>
+              {pollType === "multiple" && (
+                <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Aspirants card ── */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionIconWrap, { backgroundColor: "#EAF6EE" }]}>
+                <Ionicons name="people-outline" size={15} color="#1F9F4E" />
+              </View>
+              <Text style={styles.sectionLabel}>Aspirants</Text>
+              <View style={styles.aspirantProgressPill}>
+                <Text style={styles.aspirantProgressText}>
+                  {aspirantsValidCount}/{aspirants.length} ready
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.fieldHint}>
+              Add candidates with their name and email (min 2, max 10)
+            </Text>
+
+            {aspirants.map((asp, index) => {
+              const nameOk = asp.name.trim().length > 0;
+              const emailOk = isValidEmail(asp.email);
+              const isDup = duplicateEmails.includes(asp.email.trim().toLowerCase());
+              const aspirantComplete = nameOk && emailOk && !isDup;
+              const avatarColor = AVATAR_PALETTE[index % AVATAR_PALETTE.length];
+
+              return (
+                <View
+                  key={asp.id}
+                  style={[styles.aspirantCard, aspirantComplete && styles.aspirantCardComplete]}
+                >
+                  <View style={styles.aspirantHeaderRow}>
+                    <View style={[styles.optionIndex, { backgroundColor: avatarColor }]}>
+                      <Text style={styles.optionIndexText}>{index + 1}</Text>
+                    </View>
+                    <Text style={styles.aspirantLabel}>Aspirant {index + 1}</Text>
+                    {aspirantComplete && (
+                      <Ionicons name="checkmark-circle" size={16} color="#1F9F4E" />
+                    )}
+                    {aspirants.length > 2 && (
+                      <TouchableOpacity
+                        onPress={() => removeAspirant(asp.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#d1d5db" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <Text style={styles.subFieldLabel}>Full Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. John Mensah"
+                    placeholderTextColor="#b0b0b0"
+                    value={asp.name}
+                    onChangeText={(t) => updateAspirant(asp.id, "name", t)}
+                    maxLength={80}
+                    returnKeyType="next"
+                  />
+
+                  <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>Email Address *</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      asp.email.trim() && !isValidEmail(asp.email) && styles.inputError,
+                      isDup && styles.inputError,
+                    ]}
+                    placeholder="e.g. john@example.com"
+                    placeholderTextColor="#b0b0b0"
+                    value={asp.email}
+                    onChangeText={(t) => updateAspirant(asp.id, "email", t)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    maxLength={120}
+                    returnKeyType="next"
+                  />
+                  {asp.email.trim() && !isValidEmail(asp.email) && (
+                    <Text style={styles.errorText}>Invalid email address</Text>
+                  )}
+                  {isDup && (
+                    <Text style={styles.errorText}>
+                      Duplicate — each aspirant must have a unique email
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+
+            {aspirants.length < 10 && (
+              <TouchableOpacity style={styles.addOptionBtn} onPress={addAspirant}>
+                <Ionicons name="add-circle-outline" size={16} color="#1F9F4E" />
+                <Text style={styles.addOptionText}>Add aspirant</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* ── Settings card ── */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.sectionIconWrap, { backgroundColor: "#EAF6EE" }]}>
+                <Ionicons name="settings-outline" size={15} color="#1F9F4E" />
+              </View>
+              <Text style={styles.sectionLabel}>Settings</Text>
+            </View>
+
+            <Text style={styles.fieldLabel}>
+              Voting deadline <Text style={styles.optional}>(Optional)</Text>
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.deadlineRow, deadline ? styles.deadlineRowActive : null]}
+              onPress={openDeadlinePicker}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#1F9F4E" />
+              <Text style={[styles.deadlineText, deadline ? styles.deadlineTextActive : null]}>
+                {deadline ? deadline.toLocaleString() : "Set end date & time"}
+              </Text>
+              {deadline && (
+                <TouchableOpacity
+                  onPress={() => setDeadline(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {/* Inline deadline picker */}
+            {showDeadlinePicker && (
+              <View style={styles.inlinePickerBox}>
+                <Text style={styles.inlinePickerPreview}>
+                  {pendingDate.toLocaleString()}
+                </Text>
+
+                {Platform.OS === "ios" && (
+                  <DateTimePicker
+                    value={pendingDate}
+                    mode="datetime"
+                    display="spinner"
+                    onChange={handleNativeDateTimeChange}
+                    minimumDate={new Date()}
+                    style={{ width: "100%" }}
+                  />
+                )}
+
+                {Platform.OS === "android" && (
+                  <View style={styles.androidPickersRow}>
+                    <DateTimePicker
+                      value={pendingDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleAndroidDateChange}
+                      minimumDate={new Date()}
+                      style={styles.androidSpinner}
+                    />
+                    <DateTimePicker
+                      value={pendingDate}
+                      mode="time"
+                      display="spinner"
+                      onChange={handleAndroidTimeChange}
+                      style={styles.androidSpinner}
+                    />
+                  </View>
+                )}
+
+                {Platform.OS === "web" && (
+                  <View style={styles.webPickersRow}>
+                    <input
+                      type="date"
+                      value={toDateInputValue(pendingDate)}
+                      min={toDateInputValue(new Date())}
+                      onChange={handleWebDateChange}
+                      style={webInputStyle}
+                    />
+                    <input
+                      type="time"
+                      value={toTimeInputValue(pendingDate)}
+                      onChange={handleWebTimeChange}
+                      style={webInputStyle}
+                    />
+                  </View>
+                )}
+
+                <View style={styles.inlinePickerActions}>
+                  <TouchableOpacity onPress={cancelDeadline} style={styles.inlineCancelBtn}>
+                    <Text style={styles.inlineCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={confirmDeadline} style={styles.inlineDoneBtn}>
+                    <Text style={styles.inlineDoneText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.dividerThin} />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleIconWrap}>
+                <Ionicons name="eye-off-outline" size={15} color="#6b7280" />
+              </View>
+              <View style={styles.toggleText}>
+                <Text style={styles.toggleLabel}>Anonymous voting</Text>
+                <Text style={styles.toggleDesc}>
+                  Voter identities will be hidden from results.
+                </Text>
+              </View>
+              <Switch
+                value={isAnonymous}
+                onValueChange={setIsAnonymous}
+                trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
+                thumbColor={isAnonymous ? "#1F9F4E" : "#9ca3af"}
+              />
+            </View>
+
+            <View style={styles.dividerThin} />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleIconWrap}>
+                <Ionicons name="stats-chart-outline" size={15} color="#6b7280" />
+              </View>
+              <View style={styles.toggleText}>
+                <Text style={styles.toggleLabel}>Show live results</Text>
+                <Text style={styles.toggleDesc}>
+                  Voters can see results as voting progresses.
+                </Text>
+              </View>
+              <Switch
+                value={showResults}
+                onValueChange={setShowResults}
+                trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
+                thumbColor={showResults ? "#1F9F4E" : "#9ca3af"}
+              />
+            </View>
           </View>
 
           {/* ── Publish ── */}
@@ -649,6 +748,12 @@ export default function CreatePollScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {!isFormValid && !publishing && (
+            <Text style={styles.validationHint}>
+              Fill in all required fields to enable publishing.
+            </Text>
+          )}
 
           <Text style={styles.footerNote}>
             Once published, the poll will be visible to all community members.
@@ -675,7 +780,7 @@ const webInputStyle: any = {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: "#e8e8eaff" },
+  flex: { flex: 1, backgroundColor: "#f5f6f8" },
 
   header: {
     flexDirection: "row",
@@ -697,24 +802,51 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
 
-  scroll: { flex: 1, backgroundColor: "#fff" },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  pageSubtitle: { fontSize: 15, color: "#232323ff", textAlign: "center", marginBottom: 16 },
+  scroll: { flex: 1, backgroundColor: "#eee" },
+  scrollContent: { padding: 14, paddingBottom: 40 },
+  pageSubtitle: { fontSize: 14, color: "#6b7280", textAlign: "center", marginBottom: 16, marginTop: 4 },
 
+  // Section cards
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 1 },
+      default: { boxShadow: "0 1px 4px rgba(0,0,0,0.06)" } as any,
+    }),
+  },
+
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+  },
+  sectionIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#1F9F4E",
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 14,
+    flex: 1,
   },
-  sectionDivider: {
-    height: 10,
+  aspirantProgressPill: {
     backgroundColor: "#f3f4f6",
-    marginVertical: 20,
-    marginHorizontal: -16,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
+  aspirantProgressText: { fontSize: 11, fontWeight: "700", color: "#6b7280" },
 
   fieldLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   subFieldLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", marginBottom: 5 },
@@ -798,24 +930,31 @@ const styles = StyleSheet.create({
   radioDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
 
   // Aspirants
+  aspirantCard: {
+    borderWidth: 1,
+    borderColor: "#eef0f2",
+    backgroundColor: "#fafbfc",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  aspirantCardComplete: { borderColor: "#cdeed9", backgroundColor: "#fbfffc" },
   aspirantHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 10,
-    marginTop: 14,
   },
   aspirantLabel: { flex: 1, fontSize: 13, fontWeight: "700", color: "#374151" },
   optionIndex: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#EAF6EE",
     alignItems: "center",
     justifyContent: "center",
   },
-  optionIndexText: { fontSize: 12, fontWeight: "700", color: "#1F9F4E" },
-  addOptionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 14 },
+  optionIndexText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  addOptionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4, justifyContent: "center" },
   addOptionText: { fontSize: 13, color: "#1F9F4E", fontWeight: "600" },
 
   // Deadline
@@ -874,13 +1013,71 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
     paddingVertical: 12,
-    gap: 12,
+  },
+  toggleIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#f3f4f6",
+    alignItems: "center",
+    justifyContent: "center",
   },
   toggleText: { flex: 1 },
   toggleLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
   toggleDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
+
+  // Success banner + segmented button
+  successBanner: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#cdeed9",
+    padding: 14,
+    marginBottom: 14,
+    gap: 12,
+    ...Platform.select({
+      ios: { shadowColor: "#1F9F4E", shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 1 },
+      default: { boxShadow: "0 1px 4px rgba(31,159,78,0.08)" } as any,
+    }),
+  },
+  successHeaderRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  successIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#EAF6EE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successTitle: { fontSize: 14.5, fontWeight: "700", color: "#1a1a1a" },
+  successDesc: { fontSize: 12.5, color: "#6b7280", marginTop: 1 },
+
+  segmentedBtn: {
+    flexDirection: "row",
+    height: 44,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  segmentLeft: {
+    flex: 1.3,
+    backgroundColor: "#1F9F4E",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  segmentLeftText: { color: "#fff", fontWeight: "700", fontSize: 12.5, letterSpacing: 0.3 },
+  segmentDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)" },
+  segmentRight: {
+    flex: 1,
+    backgroundColor: "#17803F",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentRightText: { color: "#fff", fontWeight: "700", fontSize: 12.5, letterSpacing: 0.3 },
 
   dividerThin: { height: 0.5, backgroundColor: "#f3f4f6", marginVertical: 2 },
 
@@ -893,7 +1090,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1F9F4E",
     borderRadius: 14,
     paddingVertical: 15,
-    marginTop: 24,
+    marginTop: 10,
     shadowColor: "#1F9F4E",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -902,6 +1099,12 @@ const styles = StyleSheet.create({
   },
   publishBtnDisabled: { backgroundColor: "#d1d5db", shadowOpacity: 0, elevation: 0 },
   publishText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  validationHint: {
+    fontSize: 12,
+    color: "#ef4444",
+    textAlign: "center",
+    marginTop: 10,
+  },
   footerNote: {
     fontSize: 11,
     color: "#9ca3af",

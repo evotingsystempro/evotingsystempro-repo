@@ -90,6 +90,7 @@ export default function PollLeaderboardScreen() {
     const [loadingPoll, setLoadingPoll] = useState(true);
     const [loadingAspirants, setLoadingAspirants] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [votedAt, setVotedAt] = useState<Date | null>(null);
 
     // ── togglingEmail: state + ref so async guards never read stale values ─────
     const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
@@ -110,7 +111,9 @@ export default function PollLeaderboardScreen() {
     // Tick every 30 s so timeAgo labels refresh automatically
     const [, setTick] = useState(0);
     useEffect(() => {
-        const id = setInterval(() => setTick(t => t + 1), 30_000);
+        //  const id = setInterval(() => setTick(t => t + 1), 30_000);
+        // Change 30_000 → 1_000 for per-second UI refresh
+        const id = setInterval(() => setTick(t => t + 1), 1_000);
         return () => clearInterval(id);
     }, []);
 
@@ -161,7 +164,10 @@ export default function PollLeaderboardScreen() {
         try {
             const snap = await getDoc(doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt"));
             if (snap.exists()) {
-                const voted = snap.data()?.aspirantVoted;
+                const data = snap.data();
+                const voted = data?.aspirantVoted;
+                const at = data?.votedAt;
+
                 if (Array.isArray(voted)) {
                     syncVotedEmails(voted.filter(Boolean));
                 } else if (voted) {
@@ -169,12 +175,17 @@ export default function PollLeaderboardScreen() {
                 } else {
                     syncVotedEmails([]);
                 }
+
+                // Store when the vote was cast
+                setVotedAt(at?.toDate ? at.toDate() : null);
             } else {
                 syncVotedEmails([]);
+                setVotedAt(null);
             }
         } catch (e) {
             console.error("loadMyVotes:", e);
             syncVotedEmails([]);
+            setVotedAt(null);
         }
     }, [rawUserEmail, pollId, syncVotedEmails]);
 
@@ -196,6 +207,18 @@ export default function PollLeaderboardScreen() {
         if (poll.status === "closed" || isExpired(poll.deadline)) {
             Alert.alert("Poll closed", "This poll is no longer accepting votes.");
             return;
+        }
+
+        // 30-second lock for single-vote polls
+        if (poll.pollType === "single" && votedAt) {
+            const secondsSinceVote = (Date.now() - votedAt.getTime()) / 1000;
+            if (secondsSinceVote > 30) {
+                Alert.alert(
+                    "Vote locked",
+                    "Your vote was cast more than 30 seconds ago and can no longer be changed."
+                );
+                return;
+            }
         }
 
         // Read from ref — closures over state can be stale
@@ -230,6 +253,7 @@ export default function PollLeaderboardScreen() {
                     votedAt: serverTimestamp(),
                 }, { merge: true });
 
+                setVotedAt(null);
                 syncVotedEmails(next);
 
             } else {
@@ -258,6 +282,7 @@ export default function PollLeaderboardScreen() {
                     votedAt: serverTimestamp(),
                 }, { merge: true });
 
+                setVotedAt(new Date());
                 syncVotedEmails(next);
             }
 
@@ -366,10 +391,16 @@ export default function PollLeaderboardScreen() {
                                 {aspirants.length} aspirant{aspirants.length !== 1 ? "s" : ""}
                             </Text>
                         </View>
+                        {/*      <View style={styles.metaChip}>
+                            <Ionicons name="person-outline" size={13} color="#6b7280" />
+                            <Text style={styles.YouVotedForText}>
+                                You voted for <Text style={{ fontSize: 12, padding: 3, paddingHorizontal: 10, backgroundColor: "#e6f4ea", borderRadius: 10 }}>{aspirants[0]?.name ?? "none"}</Text>
+                            </Text>
+                        </View> */}
                         {poll.deadline && (
                             <View style={styles.metaChip}>
                                 <Ionicons name="time-outline" size={13} color="#6b7280" />
-                                <Text style={styles.metaChipText}>{formatDeadline(poll.deadline)}</Text>
+                                Voting ends: <Text style={{ fontSize: 12, color: "#fff", fontWeight: "600", padding: 5, paddingHorizontal: 10, backgroundColor: "#2fa550a4", borderRadius: 10 }}>{formatDeadline(poll.deadline)}</Text>
                             </View>
                         )}
                     </View>
@@ -435,7 +466,7 @@ export default function PollLeaderboardScreen() {
                                                 >
                                                     <AntDesign
                                                         name="like1"
-                                                        size={25}
+                                                        size={22}
                                                         color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
                                                     />
                                                     <Text style={[styles.thumbCount, hasVotedThis && styles.thumbCountActive]}>
@@ -453,13 +484,13 @@ export default function PollLeaderboardScreen() {
                     <View style={styles.divider} />
 
                     {/* Notices */}
-                    {alreadyVoted && (
+                    {alreadyVoted && poll.pollType === "single" && (
                         <View style={styles.noticeRow}>
                             <Ionicons name="checkmark-circle" size={16} color="#1F9F4E" />
                             <Text style={styles.noticeText}>
-                                {poll.pollType === "single"
-                                    ? "Tap another aspirant to switch your vote, or tap again to remove it."
-                                    : "Tap an aspirant again to remove that vote."}
+                                {votedAt && (Date.now() - votedAt.getTime()) / 1000 <= 30
+                                    ? `You have ${Math.max(0, 30 - Math.floor((Date.now() - votedAt.getTime()) / 1000))}s left to change your vote.`
+                                    : "Your vote is now locked and cannot be changed."}
                             </Text>
                         </View>
                     )}
@@ -531,17 +562,18 @@ const styles = StyleSheet.create({
     statusTextActive: { color: "#1F9F4E" },
     statusTextClosed: { color: "#ef4444" },
     metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-    metaChipText: { fontSize: 13, color: "#6b7280" },
+    metaChipText: { fontSize: 14, color: "#6b7280" },
+    YouVotedForText: { fontSize: 13, color: "#20792bff", fontWeight: "600" },
 
     divider: { height: 0.5, backgroundColor: "#e5e7eb" },
     cardsWrap: { paddingHorizontal: 3 },
 
     card: {
-        backgroundColor: "#fff", borderRadius: 18, padding: 14,
+        backgroundColor: "#fff", borderRadius: 12, padding: 14,
         borderWidth: 1, borderColor: "#ddd", marginBottom: 6,
     },
-    cardTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    avatar: { width: 48, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    cardTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    avatar: { width: 45, height: 45, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     avatarText: { color: "#fff", fontWeight: "800", fontSize: 18 },
     cardNameBlock: { flex: 1, gap: 2 },
     cardName: { fontSize: 16, fontWeight: "700", color: "#1a1a1a" },
@@ -559,7 +591,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
         backgroundColor: "#e0efe5ff", alignItems: "center", justifyContent: "center",
     },
-    pointsCircleText: { fontSize: 30, fontWeight: "800", color: "#15803d" },
+    pointsCircleText: { fontSize: 25, fontWeight: "800", color: "#15803d" },
     pointsLabel: { fontSize: 14, color: "#374151", marginLeft: 6 },
 
     thumbBtn: { flexDirection: "row", alignItems: "center", gap: 5, marginLeft: 16 },
