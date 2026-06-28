@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
+import React, { useContext, useEffect, useState, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -15,14 +15,8 @@ import ReusableScreen from "@/components/ReusableScreen";
 import { GlobalContext } from "@/context";
 import { db } from "@/firebase";
 import {
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    collection,
-    onSnapshot,
-    increment,
-    serverTimestamp,
+    doc, getDoc, setDoc, updateDoc,
+    collection, onSnapshot, increment, serverTimestamp,
 } from "firebase/firestore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,8 +26,7 @@ interface Aspirant {
     name: string;
     photo: string;
     votes: number;
-    pollId: string;
-    creatorEmail: string;
+    lastVotedAt: Date | null;
 }
 
 interface Poll {
@@ -58,28 +51,36 @@ const isExpired = (deadline: string | null) =>
 const totalVotes = (aspirants: Aspirant[]) =>
     aspirants.reduce((s, a) => s + (a.votes || 0), 0);
 
-const pct = (votes: number, total: number) =>
-    total === 0 ? 0 : Math.round((votes / total) * 100);
-
 const formatDeadline = (deadline: string | null) => {
     if (!deadline) return null;
     return new Date(deadline).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
 };
 
 const RANK_LABELS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
-const AVATAR_COLORS = ["#9d174d", "#1f2937", "#9d174d", "#1F9F4E", "#2563eb", "#b45309"];
+const AVATAR_COLORS = ["#9d174d", "#1f2937", "#1F9F4E", "#2563eb", "#b45309", "#7c3aed"];
+
+const timeAgo = (date: Date | null): string => {
+    if (!date) return "no votes yet";
+    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (secs < 10) return "now";
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return "yesterday";
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PollLeaderboardScreen() {
-    const { userName, rawUserEmail } = useContext(GlobalContext);
+    const { rawUserEmail } = useContext(GlobalContext);
 
-    // Normalise params — expo-router can return string | string[]
     const params = useLocalSearchParams<{ pollId: string; creatorEmail: string }>();
     const pollId = Array.isArray(params.pollId) ? params.pollId[0] : params.pollId;
     const creatorEmail = Array.isArray(params.creatorEmail) ? params.creatorEmail[0] : params.creatorEmail;
@@ -90,12 +91,30 @@ export default function PollLeaderboardScreen() {
     const [loadingAspirants, setLoadingAspirants] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // The aspirantEmail this voter has voted for (null = not voted yet)
-    // For multiple-vote polls this is an array; for single-vote it's at most one element.
-    const [votedEmails, setVotedEmails] = useState<string[]>([]);
+    // ── togglingEmail: state + ref so async guards never read stale values ─────
     const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
+    const togglingEmailRef = useRef<string | null>(null);
+    const setTogglingEmailSafe = (val: string | null) => {
+        togglingEmailRef.current = val;
+        setTogglingEmail(val);
+    };
 
-    // ── Poll metadata (real-time) ──────────────────────────────────────────────
+    // ── votedEmails: state + ref so async handlers never read stale values ─────
+    const [votedEmails, setVotedEmails] = useState<string[]>([]);
+    const votedEmailsRef = useRef<string[]>([]);
+    const syncVotedEmails = useCallback((next: string[]) => {
+        votedEmailsRef.current = next;
+        setVotedEmails(next);
+    }, []);
+
+    // Tick every 30 s so timeAgo labels refresh automatically
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setTick(t => t + 1), 30_000);
+        return () => clearInterval(id);
+    }, []);
+
+    // ── Poll metadata (live) ──────────────────────────────────────────────────
 
     useEffect(() => {
         if (!pollId || !creatorEmail) return;
@@ -104,199 +123,177 @@ export default function PollLeaderboardScreen() {
             (snap) => {
                 if (snap.exists()) setPoll(snap.data() as Poll);
                 setLoadingPoll(false);
-            }
+            },
+            (err) => { console.error("poll listener:", err); setLoadingPoll(false); }
         );
     }, [pollId, creatorEmail]);
 
-    // ── Aspirants (real-time) ──────────────────────────────────────────────────
+    // ── Aspirants (live) ──────────────────────────────────────────────────────
 
     useEffect(() => {
         if (!pollId || !creatorEmail) return;
         return onSnapshot(
             collection(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId),
             (snap) => {
-                const list: Aspirant[] = snap.docs.map((d) => ({
-                    email: d.data().email ?? d.id,   // use stored email field; fall back to doc ID
-                    name: d.data().name ?? d.id,
-                    photo: d.data().photo ?? "",
-                    votes: d.data().votes ?? 0,
-                    pollId: d.data().pollId ?? pollId,
-                    creatorEmail: d.data().creatorEmail ?? creatorEmail,
+                setAspirants(snap.docs.map(d => {
+                    const data = d.data();
+                    const raw = data.lastVotedAt;
+                    return {
+                        email: data.email ?? d.id,
+                        name: data.name ?? d.id,
+                        photo: data.photo ?? "",
+                        votes: data.votes ?? 0,
+                        lastVotedAt: raw?.toDate ? raw.toDate() : null,
+                    };
                 }));
-                setAspirants(list);
                 setLoadingAspirants(false);
                 setRefreshing(false);
-            }
+            },
+            (err) => { console.error("aspirants listener:", err); setLoadingAspirants(false); }
         );
     }, [pollId, creatorEmail]);
 
-    // ── Load this voter's receipt from VOTERS_DB ───────────────────────────────
-    //
-    // Structure (matches the agreed schema):
-    //   VOTERS_DB/{voterEmail}/{pollId}   ← pollId is the DOCUMENT ID, no "polls" subcollection
-    //     ├── pollTitle
-    //     ├── creatorEmail
-    //     ├── aspirantVoted   string (single) | string[] (multiple)
-    //     └── votedAt
+    // ── Load my existing vote ─────────────────────────────────────────────────
+    // Path: VOTERS_DB/{voterEmail}/{pollId}/receipt
 
     const loadMyVotes = useCallback(async () => {
         if (!rawUserEmail || !pollId) return;
         try {
-            // CORRECT path: VOTERS_DB/{voterEmail}/{pollId}
             const snap = await getDoc(doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt"));
             if (snap.exists()) {
-                const data = snap.data();
-                const voted = data?.aspirantVoted;
-                setVotedEmails(Array.isArray(voted) ? voted : voted ? [voted] : []);
+                const voted = snap.data()?.aspirantVoted;
+                if (Array.isArray(voted)) {
+                    syncVotedEmails(voted.filter(Boolean));
+                } else if (voted) {
+                    syncVotedEmails([voted]);
+                } else {
+                    syncVotedEmails([]);
+                }
             } else {
-                setVotedEmails([]);
+                syncVotedEmails([]);
             }
         } catch (e) {
             console.error("loadMyVotes:", e);
+            syncVotedEmails([]);
         }
-    }, [rawUserEmail, pollId]);
+    }, [rawUserEmail, pollId, syncVotedEmails]);
 
     useEffect(() => { loadMyVotes(); }, [loadMyVotes]);
 
-    // ── Toggle vote ────────────────────────────────────────────────────────────
-    //
-    // Single-vote:
-    //   • Tap unvoted aspirant  → remove vote from previous (if any), add to new one
-    //   • Tap already-voted aspirant → undo that vote
-    //
-    // Multiple-vote:
-    //   • Tap unvoted aspirant  → add vote
-    //   • Tap already-voted aspirant → undo that vote
-    //
-    // VOTERS_DB receipt is always written so we know what to undo next time.
-    // aspirant docs are found by their stored `email` field, not the doc ID,
-    // because the schema uses aspirant_id as the doc key.
+    // ── Toggle vote ───────────────────────────────────────────────────────────
 
     const handleToggleVote = async (aspirantEmail: string) => {
-        if (!poll || !rawUserEmail || !pollId || !creatorEmail) return;
-        if (togglingEmail) return; // prevent double-tap
+        console.log("TAP →", aspirantEmail, "| togglingEmail:", togglingEmailRef.current, "| canVote:", !closed);
 
-        const closedNow = poll.status === "closed" || isExpired(poll.deadline);
-        if (closedNow) {
+        if (!poll || !rawUserEmail || !pollId || !creatorEmail) {
+            Alert.alert("Not ready", "Please wait a moment and try again.");
+            return;
+        }
+
+        // Guard reads from ref — never stale
+        if (togglingEmailRef.current) return;
+
+        if (poll.status === "closed" || isExpired(poll.deadline)) {
             Alert.alert("Poll closed", "This poll is no longer accepting votes.");
             return;
         }
 
-        setTogglingEmail(aspirantEmail);
+        // Read from ref — closures over state can be stale
+        const current = votedEmailsRef.current;
+        const hasVotedThis = current.includes(aspirantEmail);
+
+        console.log("handleToggleVote →", { aspirantEmail, current, hasVotedThis, pollType: poll.pollType });
+
+        setTogglingEmailSafe(aspirantEmail);
+
+        // All refs built fresh inside the call — never from stale outer constants
+        const aspirantRef = (email: string) =>
+            doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, email);
+
+        // VOTERS_DB/{voterEmail}/{pollId}/receipt
+        const voterDocRef = doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt");
 
         try {
-            const hasVotedThis = votedEmails.includes(aspirantEmail);
-
-            // VOTERS_DB receipt doc — CORRECT path (no "polls" level)
-            const receiptRef = doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt");
-
-            // Helper: find the aspirant's Firestore doc reference by its stored email field.
-            // Because the doc ID may be an aspirant_id, we look it up from the loaded list.
-            const findAspirantRef = (email: string) => {
-                const asp = aspirants.find((a) => a.email === email);
-                if (!asp) throw new Error(`Aspirant not found: ${email}`);
-                // The doc's id in the snapshot is used to build the ref
-                // We stored email in d.data().email, but we need the doc ID.
-                // Get it from the snapshot we built:
-                return null; // placeholder — see note below
-            };
-
-            // Since we map `email: d.data().email ?? d.id` in the snapshot listener,
-            // and the Firestore doc ID might differ from the email, we need the doc ID.
-            // The safest approach: store docId on the Aspirant object.
-            // For now, aspirants loaded from onSnapshot use d.id as the Firestore doc ID.
-            // We'll find the matching aspirant by email to get its docId.
-            const getAspirantDocRef = (email: string) => {
-                // Find the aspirant in the local list whose email matches
-                const asp = aspirants.find((a) => a.email === email);
-                if (!asp) throw new Error(`Aspirant not found in list: ${email}`);
-                // We need the Firestore doc ID. Since we read email from d.data().email ?? d.id,
-                // and the doc ID is aspirant_id, we need to track docId separately.
-                // ─── IMPORTANT ───
-                // The snapshot listener uses d.data().email ?? d.id for the email field,
-                // but the doc path needs d.id (the actual Firestore document ID).
-                // We fix this by returning a collection-level ref and letting Firestore
-                // match on the stored email. But that requires a query, not a direct ref.
-                //
-                // SIMPLEST FIX: keep aspirantEmail as the Firestore doc ID (as in CreatePollScreen).
-                // CreatePollScreen writes: doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, aspirantEmail)
-                // So doc ID = aspirantEmail. The schema note "aspirant_id" is just a label —
-                // the actual doc ID written by CreatePollScreen IS the aspirantEmail.
-                // So the direct ref is correct:
-                return doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, email);
-            };
-
             if (hasVotedThis) {
-                // ── Undo this vote ──────────────────────────────────────────────
-                await updateDoc(getAspirantDocRef(aspirantEmail), { votes: increment(-1) });
+                // ── Remove vote ───────────────────────────────────────────────
+                await updateDoc(aspirantRef(aspirantEmail), {
+                    votes: increment(-1),
+                    lastVotedAt: serverTimestamp(),
+                });
 
-                const newVotedFor = votedEmails.filter((e) => e !== aspirantEmail);
+                const next = current.filter(e => e !== aspirantEmail);
 
-                await setDoc(
-                    receiptRef,
-                    {
-                        pollTitle: poll.title,
-                        creatorEmail,
-                        aspirantVoted: poll.pollType === "single"
-                            ? (newVotedFor[0] ?? null)
-                            : newVotedFor,
-                        votedAt: serverTimestamp(),
-                    },
-                    { merge: true }
-                );
+                await setDoc(voterDocRef, {
+                    pollTitle: poll.title,
+                    creatorEmail,
+                    aspirantVoted: poll.pollType === "single" ? (next[0] ?? null) : next,
+                    votedAt: serverTimestamp(),
+                }, { merge: true });
 
-                setVotedEmails(newVotedFor);
+                syncVotedEmails(next);
 
             } else {
-                // ── Cast vote (and swap if single-vote) ─────────────────────────
-                if (poll.pollType === "single" && votedEmails.length > 0) {
-                    // Remove previous vote first
-                    const prevEmail = votedEmails[0];
-                    await updateDoc(getAspirantDocRef(prevEmail), { votes: increment(-1) });
+                // ── Cast vote ─────────────────────────────────────────────────
+                if (poll.pollType === "single" && current.length > 0) {
+                    console.log("Swapping vote:", current[0], "→", aspirantEmail);
+                    await updateDoc(aspirantRef(current[0]), {
+                        votes: increment(-1),
+                        lastVotedAt: serverTimestamp(),
+                    });
                 }
 
-                await updateDoc(getAspirantDocRef(aspirantEmail), { votes: increment(1) });
+                await updateDoc(aspirantRef(aspirantEmail), {
+                    votes: increment(1),
+                    lastVotedAt: serverTimestamp(),
+                });
 
-                const newVotedFor = poll.pollType === "single"
+                const next = poll.pollType === "single"
                     ? [aspirantEmail]
-                    : Array.from(new Set([...votedEmails, aspirantEmail]));
+                    : Array.from(new Set([...current, aspirantEmail]));
 
-                await setDoc(
-                    receiptRef,
-                    {
-                        pollTitle: poll.title,
-                        creatorEmail,
-                        aspirantVoted: poll.pollType === "single" ? aspirantEmail : newVotedFor,
-                        votedAt: serverTimestamp(),
-                    },
-                    { merge: true }
-                );
+                await setDoc(voterDocRef, {
+                    pollTitle: poll.title,
+                    creatorEmail,
+                    aspirantVoted: poll.pollType === "single" ? aspirantEmail : next,
+                    votedAt: serverTimestamp(),
+                }, { merge: true });
 
-                setVotedEmails(newVotedFor);
+                syncVotedEmails(next);
             }
 
-        } catch (err) {
-            console.error("handleToggleVote:", err);
-            Alert.alert("Error", `Could not update your vote.\n\n${String(err)}`);
+        } catch (err: any) {
+            console.error("handleToggleVote error:", err);
+            Alert.alert("Vote failed", err?.message ?? "Could not update vote. Please try again.");
+            await loadMyVotes();
         } finally {
-            setTogglingEmail(null);
+            setTogglingEmailSafe(null);
         }
     };
 
     const onRefresh = () => { setRefreshing(true); loadMyVotes(); };
 
-    // ── Derived ────────────────────────────────────────────────────────────────
+    // Add this ref alongside the others at the top of the component
+    const sortedRef = useRef<Aspirant[]>([]);
+
+    // ── Derived ───────────────────────────────────────────────────────────────────
 
     const alreadyVoted = votedEmails.length > 0;
     const expired = isExpired(poll?.deadline ?? null);
     const closed = poll?.status === "closed" || expired;
     const canVote = !closed;
-
-    const sorted = [...aspirants].sort((a, b) => (b.votes || 0) - (a.votes || 0));
     const total = totalVotes(aspirants);
     const loading = loadingPoll || loadingAspirants;
 
-    // ── Loading ────────────────────────────────────────────────────────────────
+    // Only re-sort when no vote operation is in flight —
+    // prevents the card list jumping and spinner appearing on wrong card
+    const sorted = (() => {
+        if (togglingEmailRef.current) return sortedRef.current;
+        const next = [...aspirants].sort((a, b) => (b.votes || 0) - (a.votes || 0));
+        sortedRef.current = next;
+        return next;
+    })();
+
+    // ── Loading ───────────────────────────────────────────────────────────────
 
     if (loading) {
         return (
@@ -328,7 +325,7 @@ export default function PollLeaderboardScreen() {
         );
     }
 
-    // ── UI ─────────────────────────────────────────────────────────────────────
+    // ── Render ────────────────────────────────────────────────────────────────
 
     return (
         <ReusableScreen>
@@ -341,7 +338,7 @@ export default function PollLeaderboardScreen() {
                 <View style={{ width: 32 }} />
             </View>
 
-            <View style={{ flex: 1, backgroundColor: "#fff", margin: 5, borderRadius: 12, overflow: "hidden" }}>
+            <View style={styles.body}>
                 <ScrollView
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
@@ -351,7 +348,7 @@ export default function PollLeaderboardScreen() {
                             tintColor="#1F9F4E" colors={["#1F9F4E"]} />
                     }
                 >
-                    {/* ── Status row ── */}
+                    {/* Status row */}
                     <View style={styles.statusRow}>
                         <View style={[styles.statusBadge, closed ? styles.badgeClosed : styles.badgeActive]}>
                             <View style={[styles.statusDot, closed ? styles.dotClosed : styles.dotActive]} />
@@ -379,7 +376,7 @@ export default function PollLeaderboardScreen() {
 
                     <View style={styles.divider} />
 
-                    {/* ── Aspirant cards ── */}
+                    {/* Aspirant cards */}
                     {sorted.length === 0 ? (
                         <View style={styles.emptyAspirantsWrap}>
                             <Ionicons name="people-outline" size={36} color="#d1d5db" />
@@ -406,8 +403,9 @@ export default function PollLeaderboardScreen() {
                                                 <Text style={styles.cardName} numberOfLines={1}>{asp.name}</Text>
                                                 <Text style={styles.cardEmail} numberOfLines={1}>{asp.email}</Text>
                                             </View>
-                                            <View style={styles.voteDeltaBadge}>
-                                                <Text style={styles.voteDeltaText}>+{asp.votes || 0}</Text>
+                                            <View style={styles.timeBadge}>
+                                                <Ionicons name="time-outline" size={11} color="#6b7280" />
+                                                <Text style={styles.timeBadgeText}>{timeAgo(asp.lastVotedAt)}</Text>
                                             </View>
                                         </View>
 
@@ -421,13 +419,16 @@ export default function PollLeaderboardScreen() {
                                             <View style={{ flex: 1 }} />
 
                                             {isToggling ? (
-                                                <ActivityIndicator size="small"
+                                                <ActivityIndicator
+                                                    size="small"
                                                     color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
-                                                    style={{ marginRight: 8 }} />
+                                                    style={{ marginRight: 8 }}
+                                                />
                                             ) : (
                                                 <TouchableOpacity
                                                     onPress={() => handleToggleVote(asp.email)}
-                                                    disabled={!canVote || !!togglingEmail}
+                                                    // Use ref for disabled check — state can be stale
+                                                    disabled={!canVote || !!togglingEmailRef.current}
                                                     activeOpacity={0.7}
                                                     style={styles.thumbBtn}
                                                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -451,7 +452,7 @@ export default function PollLeaderboardScreen() {
 
                     <View style={styles.divider} />
 
-                    {/* ── Notices ── */}
+                    {/* Notices */}
                     {alreadyVoted && (
                         <View style={styles.noticeRow}>
                             <Ionicons name="checkmark-circle" size={16} color="#1F9F4E" />
@@ -472,7 +473,7 @@ export default function PollLeaderboardScreen() {
                         </View>
                     )}
 
-                    {/* ── Footer meta ── */}
+                    {/* Footer */}
                     <View style={styles.footerMeta}>
                         <Text style={styles.footerMetaText}>Created by {poll.creatorName}</Text>
                         {poll.isAnonymous && (
@@ -499,45 +500,26 @@ const styles = StyleSheet.create({
     emptyText: { fontSize: 15, color: "#9ca3af", marginTop: 8, textAlign: "center" },
 
     header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#fff",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "#e5e7eb",
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+        backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12,
+        borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb",
     },
     backBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "#EAF6EE",
-        alignItems: "center",
-        justifyContent: "center",
+        width: 32, height: 32, borderRadius: 16,
+        backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
     headerTitle: {
-        flex: 1,
-        fontSize: 17,
-        fontWeight: "700",
-        color: "#1a1a1a",
-        textAlign: "center",
-        marginHorizontal: 8,
-        letterSpacing: -0.2,
+        flex: 1, fontSize: 17, fontWeight: "700", color: "#1a1a1a",
+        textAlign: "center", marginHorizontal: 8, letterSpacing: -0.2,
     },
 
+    body: { flex: 1, backgroundColor: "#fff", margin: 5, borderRadius: 12, overflow: "hidden" },
     scroll: { flex: 1, backgroundColor: "#eee", margin: 5 },
     scrollContent: { paddingBottom: 20 },
 
     statusRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        marginBottom: 7,
-        backgroundColor: "#fff",
-        flexWrap: "wrap",
+        flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap",
+        paddingHorizontal: 16, paddingVertical: 12, marginBottom: 7, backgroundColor: "#fff",
     },
     statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
     badgeActive: { backgroundColor: "#EAF6EE" },
@@ -552,16 +534,11 @@ const styles = StyleSheet.create({
     metaChipText: { fontSize: 13, color: "#6b7280" },
 
     divider: { height: 0.5, backgroundColor: "#e5e7eb" },
-
     cardsWrap: { paddingHorizontal: 3 },
 
     card: {
-        backgroundColor: "#fff",
-        borderRadius: 18,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: "#ddd",
-        marginBottom: 6,
+        backgroundColor: "#fff", borderRadius: 18, padding: 14,
+        borderWidth: 1, borderColor: "#ddd", marginBottom: 6,
     },
     cardTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     avatar: { width: 48, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
@@ -569,18 +546,18 @@ const styles = StyleSheet.create({
     cardNameBlock: { flex: 1, gap: 2 },
     cardName: { fontSize: 16, fontWeight: "700", color: "#1a1a1a" },
     cardEmail: { fontSize: 12, color: "#9ca3af" },
-    voteDeltaBadge: { backgroundColor: "#fde047", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    voteDeltaText: { fontSize: 14, fontWeight: "800", color: "#1a1a1a" },
+
+    timeBadge: {
+        flexDirection: "row", alignItems: "center", gap: 4,
+        backgroundColor: "#f3f4f6", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 20,
+    },
+    timeBadgeText: { fontSize: 11, fontWeight: "600", color: "#6b7280" },
 
     cardMiddleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 },
     rankLabel: { fontSize: 15, fontWeight: "600", color: "#6b7280", width: 36 },
     pointsCircle: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        backgroundColor: "#e0efe5ff",
-        alignItems: "center",
-        justifyContent: "center",
+        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+        backgroundColor: "#e0efe5ff", alignItems: "center", justifyContent: "center",
     },
     pointsCircleText: { fontSize: 30, fontWeight: "800", color: "#15803d" },
     pointsLabel: { fontSize: 14, color: "#374151", marginLeft: 6 },
@@ -590,14 +567,9 @@ const styles = StyleSheet.create({
     thumbCountActive: { color: "#1F9F4E" },
 
     noticeRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginHorizontal: 16,
-        marginTop: 16,
-        padding: 12,
-        borderRadius: 10,
-        backgroundColor: "#EAF6EE",
+        flexDirection: "row", alignItems: "center", gap: 8,
+        marginHorizontal: 16, marginTop: 16, padding: 12,
+        borderRadius: 10, backgroundColor: "#EAF6EE",
     },
     noticeRowClosed: { backgroundColor: "#fee2e2" },
     noticeText: { fontSize: 13, color: "#1F9F4E", flex: 1, fontWeight: "500" },

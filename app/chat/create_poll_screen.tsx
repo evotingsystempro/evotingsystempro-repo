@@ -279,6 +279,7 @@ export default function CreatePollScreen() {
 
       // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
       //    votes always start at 0; use increment() for all future updates.
+      // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
       await Promise.all(
         aspirants.map((aspirant) => {
           const aspirantEmail = aspirant.email.trim().toLowerCase();
@@ -289,6 +290,7 @@ export default function CreatePollScreen() {
               email: aspirantEmail,
               photo: "",
               votes: 0,
+              lastVotedAt: null,          // ← ADDED: initialised to null
               pollId,
               creatorEmail,
               addedAt: serverTimestamp(),

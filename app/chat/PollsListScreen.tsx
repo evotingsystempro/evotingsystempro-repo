@@ -28,6 +28,7 @@ interface PollSummary {
     creatorName: string;
     aspirantCount: number;
     dateCreated: string;
+    createdAt: number;              // epoch ms — used for reliable sorting
     showResults: boolean;
     isAnonymous: boolean;
 }
@@ -46,16 +47,8 @@ const isExpired = (deadline: string | null) =>
 const isPollClosed = (p: PollSummary) =>
     p.status === "closed" || isExpired(p.deadline);
 
-const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-};
+// dateCreated is already a human-readable locale string — return as-is
+const formatDate = (dateStr: string) => dateStr;
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -67,10 +60,7 @@ export default function PollsListScreen() {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<"all" | "active" | "closed">("all");
 
-    // ── Fetch ALL poll docs via a collectionGroup query on "polls" ─────────────
-    // This works even if the parent CREATOR_EMAIL doc under POLL_TITLE_DB was
-    // never explicitly created (which is the case here — CreatePollScreen only
-    // ever writes to the "polls" subcollection, never to the parent doc itself).
+    // ── Fetch all poll docs via collectionGroup query ─────────────────────────
 
     const fetchPolls = useCallback(async () => {
         try {
@@ -81,7 +71,6 @@ export default function PollsListScreen() {
 
             pollsSnap.docs.forEach((pd) => {
                 const d = pd.data();
-                // Each "polls" doc's parent path is POLL_TITLE_DB/{creatorEmail}/polls
                 const creatorEmail: string = d.creatorEmail ?? pd.ref.parent.parent?.id ?? "unknown";
                 const creatorName: string = d.creatorName ?? "Unknown";
 
@@ -95,6 +84,7 @@ export default function PollsListScreen() {
                     creatorName,
                     aspirantCount: d.aspirantCount ?? 0,
                     dateCreated: d.dateCreated ?? "",
+                    createdAt: d.createdAt?.toMillis?.() ?? 0,  // Firestore timestamp → ms
                     showResults: d.showResults ?? true,
                     isAnonymous: d.isAnonymous ?? false,
                 };
@@ -106,13 +96,8 @@ export default function PollsListScreen() {
 
             const groupList: CreatorGroup[] = Array.from(byCreator.entries()).map(
                 ([creatorEmail, polls]) => {
-                    polls.sort((a, b) => {
-                        if (!a.dateCreated || !b.dateCreated) return 0;
-                        return (
-                            new Date(b.dateCreated).getTime() -
-                            new Date(a.dateCreated).getTime()
-                        );
-                    });
+                    // Sort newest first using epoch ms — locale strings are not reliable
+                    polls.sort((a, b) => b.createdAt - a.createdAt);
                     return {
                         creatorEmail,
                         creatorName: creatorNames.get(creatorEmail) ?? "Unknown",
@@ -133,6 +118,8 @@ export default function PollsListScreen() {
     }, []);
 
     useEffect(() => { fetchPolls(); }, [fetchPolls]);
+
+    // ── Filter / search ───────────────────────────────────────────────────────
 
     const applyFilters = (
         source: CreatorGroup[],
@@ -171,11 +158,14 @@ export default function PollsListScreen() {
         });
     };
 
+    // ── Derived counts ────────────────────────────────────────────────────────
+
     const totalPolls = filtered.reduce((s, g) => s + g.polls.length, 0);
     const livePolls = filtered.reduce(
-        (s, g) => s + g.polls.filter((p) => !isPollClosed(p)).length,
-        0
+        (s, g) => s + g.polls.filter((p) => !isPollClosed(p)).length, 0
     );
+
+    // ── Loading ───────────────────────────────────────────────────────────────
 
     if (loading) {
         return (
@@ -196,20 +186,20 @@ export default function PollsListScreen() {
         );
     }
 
+    // ── Render ────────────────────────────────────────────────────────────────
+
     return (
         <ReusableScreen>
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={styles.backBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>All Polls</Text>
                 <View style={{ width: 32 }} />
             </View>
 
+            {/* Search bar */}
             <View style={styles.searchWrap}>
                 <Ionicons name="search-outline" size={16} color="#9ca3af" />
                 <TextInput
@@ -232,6 +222,7 @@ export default function PollsListScreen() {
                 )}
             </View>
 
+            {/* Filter tabs */}
             <View style={styles.filterRow}>
                 {(["all", "active", "closed"] as const).map((f) => (
                     <TouchableOpacity
@@ -254,6 +245,7 @@ export default function PollsListScreen() {
 
             <View style={styles.divider} />
 
+            {/* List */}
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={[
@@ -276,12 +268,15 @@ export default function PollsListScreen() {
                         <MaterialIcons name="ballot" size={48} color="#d1d5db" />
                         <Text style={styles.emptyTitle}>No polls found</Text>
                         <Text style={styles.emptyDesc}>
-                            {search ? "Try a different search term." : "No polls have been created yet."}
+                            {search
+                                ? "Try a different search term."
+                                : "No polls have been created yet."}
                         </Text>
                     </View>
                 ) : (
                     filtered.map((group, gi) => (
                         <View key={group.creatorEmail}>
+                            {/* Creator header */}
                             <View style={styles.creatorHeader}>
                                 <View style={styles.creatorAvatar}>
                                     <Text style={styles.creatorAvatarText}>
@@ -297,6 +292,7 @@ export default function PollsListScreen() {
                                 </Text>
                             </View>
 
+                            {/* Poll rows */}
                             {group.polls.map((poll, pi) => {
                                 const closed = isPollClosed(poll);
                                 const expired = isExpired(poll.deadline);
@@ -337,7 +333,9 @@ export default function PollsListScreen() {
                                                     )}
                                                 </View>
                                                 {poll.dateCreated ? (
-                                                    <Text style={styles.pollDate}>{formatDate(poll.dateCreated)}</Text>
+                                                    <Text style={styles.pollDate}>
+                                                        {formatDate(poll.dateCreated)}
+                                                    </Text>
                                                 ) : null}
                                             </View>
 
@@ -385,38 +383,30 @@ const styles = StyleSheet.create({
     loadingText: { fontSize: 14, color: "#9ca3af" },
 
     header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#fff",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "#e5e7eb",
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+        backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12,
+        borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb",
     },
     backBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "#EAF6EE",
-        alignItems: "center",
-        justifyContent: "center",
+        width: 32, height: 32, borderRadius: 16,
+        backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
     headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
 
     searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        backgroundColor: "#fff",
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "#e5e7eb",
+        flexDirection: "row", alignItems: "center", gap: 8,
+        backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 10,
+        borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb",
     },
-    searchInput: { flex: 1, fontSize: 14, color: "#1a1a1a", paddingVertical: Platform.OS === "ios" ? 0 : 2 },
+    searchInput: {
+        flex: 1, fontSize: 14, color: "#1a1a1a",
+        paddingVertical: Platform.OS === "ios" ? 0 : 2,
+    },
 
-    filterRow: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 10 },
+    filterRow: {
+        flexDirection: "row", alignItems: "center", gap: 6,
+        backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 10,
+    },
     filterTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: "#f3f4f6" },
     filterTabActive: { backgroundColor: "#EAF6EE" },
     filterTabText: { fontSize: 13, fontWeight: "500", color: "#6b7280" },
@@ -436,13 +426,8 @@ const styles = StyleSheet.create({
     emptyDesc: { fontSize: 13, color: "#9ca3af", textAlign: "center", paddingHorizontal: 32 },
 
     creatorHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 10,
-        backgroundColor: "#f9fafb",
+        flexDirection: "row", alignItems: "center", gap: 10,
+        paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10, backgroundColor: "#f9fafb",
     },
     creatorAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#1F9F4E", alignItems: "center", justifyContent: "center" },
     creatorAvatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },

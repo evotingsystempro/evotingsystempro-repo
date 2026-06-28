@@ -941,37 +941,37 @@ export default function MembersList() {
 
   // Add this near the top of your file, outside the component
 
-
-  useEffect(() => {
-    const saveCreator = async () => {
-      const creatorName = userName;
-      const creatorEmail = rawUserEmail;
-
-      if (!creatorEmail) return;   // guard: don't run if email isn't ready yet
-
-      try {
-        const creatorRef = doc(db, "VOTING_POOL_DB", creatorEmail);
-        const creatorSnap = await getDoc(creatorRef);
-
-        if (!creatorSnap.exists()) {
-          await setDoc(creatorRef, {
-            name: creatorName || "Unknown",
-            email: creatorEmail,
-            status: "active",
-            createdAt: serverTimestamp(),
-            dateCreated: new Date().toLocaleDateString(),
-            timeCreated: new Date().toLocaleTimeString(),
-          });
-        } else {
-          await updateDoc(creatorRef, { status: "active" });
+  /* 
+    useEffect(() => {
+      const saveCreator = async () => {
+        const creatorName = userName;
+        const creatorEmail = rawUserEmail;
+  
+        if (!creatorEmail) return;   // guard: don't run if email isn't ready yet
+  
+        try {
+          const creatorRef = doc(db, "VOTING_POOL_DB", creatorEmail);
+          const creatorSnap = await getDoc(creatorRef);
+  
+          if (!creatorSnap.exists()) {
+            await setDoc(creatorRef, {
+              name: creatorName || "Unknown",
+              email: creatorEmail,
+              status: "active",
+              createdAt: serverTimestamp(),
+              dateCreated: new Date().toLocaleDateString(),
+              timeCreated: new Date().toLocaleTimeString(),
+            });
+          } else {
+            await updateDoc(creatorRef, { status: "active" });
+          }
+        } catch (err) {
+          console.error("Creator save failed:", err);
         }
-      } catch (err) {
-        console.error("Creator save failed:", err);
-      }
-    };
-
-    saveCreator();
-  }, [userId, deviceId, isConnectedNET]);
+      };
+  
+      saveCreator();
+    }, [userId, deviceId, isConnectedNET]); */
 
 
 

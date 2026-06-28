@@ -47,51 +47,57 @@
 
 ```
 CREATOR_DB
-  └── creatorEmail@gmail.com
-        ├── name
-        ├── email
+  └── {creatorEmail}                          ← document ID = email
+        ├── name: string
+        ├── email: string
         ├── status: "active" | "inactive"
-        ├── createdAt
-        ├── dateCreated
-        └── timeCreated
+        ├── createdAt: timestamp
+        ├── dateCreated: string               // e.g. "2026-06-28"
+        └── timeCreated: string               // e.g. "17:35"
+
 
 POLL_TITLE_DB
-  └── creatorEmail@gmail.com
-        └── polls (subcollection)
-              └── POLL_1782_XK2A
-                    ├── pollId
-                    ├── title
+  └── {creatorEmail}                          ← document ID = email
+        └── polls/                            ← subcollection
+              └── {pollId}                    ← document ID = pollId
+                    ├── pollId: string
+                    ├── title: string
                     ├── pollType: "single" | "multiple"
-                    ├── isAnonymous: true | false
-                    ├── showResults: true | false
-                    ├── deadline: ISO string | null
+                    ├── isAnonymous: boolean
+                    ├── showResults: boolean
+                    ├── deadline: string | null   // ISO 8601
                     ├── status: "active" | "closed"
-                    ├── aspirantCount
-                    ├── creatorEmail
-                    ├── creatorName
-                    ├── createdAt
-                    ├── dateCreated
-                    └── timeCreated
+                    ├── aspirantCount: number
+                    ├── creatorEmail: string
+                    ├── creatorName: string
+                    ├── createdAt: timestamp
+                    ├── dateCreated: string
+                    └── timeCreated: string
+
 
 ASPIRANTS_DETAILS_DB
-  └── creatorEmail@gmail.com
-        └── POLL_1782_XK2A (subcollection)
-              └── aspirant_id
-                    ├── name
-                    ├── email
-                    ├── photo: url | ""
-                    ├── votes: 0          // always write via increment()
-                    ├── aspirantEmail@gmail.com
-                    ├── creatorEmail
-                    └── addedAt
+  └── {creatorEmail}                          ← document ID = email
+        └── {pollId}/                         ← subcollection
+              └── {aspirantEmail}             ← document ID = aspirant email
+                    ├── name: string
+                    ├── email: string
+                    ├── photo: string | ""
+                    ├── votes: number         // always write via increment()
+                    ├── lastVotedAt: timestamp | null   // ← ADDED; updated on every vote toggle
+                    ├── creatorEmail: string
+                    └── addedAt: timestamp
+
 
 VOTERS_DB
-  └── voterEmail@gmail.com
-        └── POLL_1782_XK2A
-              ├── pollTitle
-              ├── creatorEmail
-              ├── aspirantVoted          // aspirantEmail@gmail.com
-              └── votedAt
+  └── {voterEmail}                            ← document ID = voter email
+        └── {pollId}/                         ← subcollection
+              └── receipt                     ← document ID = "receipt" (fixed string)
+                    ├── pollTitle: string
+                    ├── creatorEmail: string
+                    ├── aspirantVoted: string | string[]
+                    │     // single-vote → aspirantEmail string (or null if vote removed)
+                    │     // multiple-vote → string[]
+                    └── votedAt: timestamp
 ```
 
 ---
