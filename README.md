@@ -46,18 +46,52 @@
 ## Project Structure
 
 ```
-evotingsystempro/
-├── app/                  # Expo Router screens
-│   ├── welcome.tsx       # Landing screen, features card, session/auth logic
-│   └── ...
-├── assets/               # Images, icons, logo
-├── components/           # Reusable UI components (ReusableScreen, ChatBanner, etc.)
-├── constants/            # App-wide constants
-├── context/              # Global & auth context providers
-├── hooks/                # Custom hooks (push notifications, network status, storage keys)
-├── DATASET/              # Voter/dataset-related data
-├── utils/                # Utility functions
-└── public/               # Web service worker
+CREATOR_DB
+  └── creatorEmail@gmail.com
+        ├── name
+        ├── email
+        ├── status: "active" | "inactive"
+        ├── createdAt
+        ├── dateCreated
+        └── timeCreated
+
+POLL_TITLE_DB
+  └── creatorEmail@gmail.com
+        └── polls (subcollection)
+              └── POLL_1782_XK2A
+                    ├── pollId
+                    ├── title
+                    ├── pollType: "single" | "multiple"
+                    ├── isAnonymous: true | false
+                    ├── showResults: true | false
+                    ├── deadline: ISO string | null
+                    ├── status: "active" | "closed"
+                    ├── aspirantCount
+                    ├── creatorEmail
+                    ├── creatorName
+                    ├── createdAt
+                    ├── dateCreated
+                    └── timeCreated
+
+ASPIRANTS_DETAILS_DB
+  └── creatorEmail@gmail.com
+        └── POLL_1782_XK2A (subcollection)
+              └── aspirant_id
+                    ├── name
+                    ├── email
+                    ├── photo: url | ""
+                    ├── votes: 0          // always write via increment()
+                    ├── aspirantEmail@gmail.com
+                    ├── creatorEmail
+                    └── addedAt
+
+VOTERS_DB
+  └── voterEmail@gmail.com
+        └── POLL_1782_XK2A
+              ├── pollTitle
+              ├── creatorEmail
+              ├── aspirantVoted          // aspirantEmail@gmail.com
+              └── votedAt
 ```
 
 ---
