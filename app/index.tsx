@@ -63,7 +63,6 @@ export default function IndexScreen() {
     return () => clearTimeout(timeout);
   }, [userId]);
 
-  // ── UI ──
   return (
     <View style={styles.container}>
       <Animated.View

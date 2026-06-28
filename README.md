@@ -27,8 +27,8 @@
 
 ## Key Tech Features
 
-- ✅ Firebase Authentication
 - ✅ Google Authentication (Sign-Up & Login)
+- ✅ Firebase Authentication
 - ✅ JWT-based token management (for native apps)
 - ✅ Firebase Realtime Database for live presence & status tracking
 - ✅ AI-powered Customer Support System
