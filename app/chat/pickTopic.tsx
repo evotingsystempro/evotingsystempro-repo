@@ -1,1010 +1,911 @@
-// pickTopic.tsx — Simplified: no shadows, no animations
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react";
+import React, { useContext, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   Platform,
-  TextInput,
+  KeyboardAvoidingView,
+  Switch,
+  ActivityIndicator,
+  Alert,
+  Image,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import ReusableScreen from "@/components/ReusableScreen";
 import { GlobalContext } from "@/context";
-import { General_questions_on_football } from "@/DATASET/General_questions_on_football";
-import { General_questions_on_science } from "@/DATASET/General_questions_on_science";
-import { General_questions_on_mathematics } from "@/DATASET/General_questions_on_mathematics";
-import { General_questions_on_general_knowledge } from "@/DATASET/General_questions_on_general_knowledge";
-import { General_questions_on_english } from "@/DATASET/General_questions_on_english";
-import { General_questions_on_computing } from "@/DATASET/General_questions_on_computing";
+//import { db, storage } from "@/firebase";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/firebase";
 
-/* ─────────────────────────────────────────────────────────
-   Types
-───────────────────────────────────────────────────────── */
-type Strand = {
-  title: string;
-  dataset: string;
-  active: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  bgColor: string;
-  description: string;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type GenericTopics = Record<string, string[]>;
+type PollType = "single" | "multiple";
 
-type PersistedSelection = {
-  expandedDatasets: string[];
-  expandedCategories: string[];
-  selectedSubtopic: string;
-  selected: { title: string; dataset: string };
-  selectedCategoryKey: string;
-};
-
-const STORAGE_KEY = "pickTopic_persistedSelection_v2";
-
-/* ─────────────────────────────────────────────────────────
-   Strand definitions
-───────────────────────────────────────────────────────── */
-const STRANDS: Strand[] = [
-  {
-    title: "Computer Science",
-    dataset: "computing",
-    active: true,
-    icon: "desktop-outline",
-    color: "#f97316",
-    bgColor: "#fff7ed",
-    description: "Hardware, software & cyber security",
-  },
-  {
-    title: "English",
-    dataset: "english",
-    active: true,
-    icon: "book-outline",
-    color: "#ec4899",
-    bgColor: "#fdf2f8",
-    description: "Grammar, writing, literature & poetry",
-  },
-  {
-    title: "Mathematics",
-    dataset: "mathematics",
-    active: true,
-    icon: "calculator-outline",
-    color: "#8b5cf6",
-    bgColor: "#f5f3ff",
-    description: "Algebra, geometry & statistics",
-  },
-  {
-    title: "General Science",
-    dataset: "science",
-    active: true,
-    icon: "flask-outline",
-    color: "#0ea5e9",
-    bgColor: "#f0f9ff",
-    description: "Biology, chemistry, physics & space",
-  },
-  {
-    title: "General Knowledge",
-    dataset: "general_knowledge",
-    active: true,
-    icon: "globe-outline",
-    color: "#10b981",
-    bgColor: "#f0fdf4",
-    description: "History, geography & current affairs",
-  },
-  {
-    title: "Football",
-    dataset: "football",
-    active: true,
-    icon: "football-outline",
-    color: "#ef4444",
-    bgColor: "#fef2f2",
-    description: "Africa, Europe, Asia & global football",
-  },
-];
-
-/* ─────────────────────────────────────────────────────────
-   Dataset map
-───────────────────────────────────────────────────────── */
-const DATASET_MAP: Record<string, GenericTopics> = {
-  computing: General_questions_on_computing.topics as GenericTopics,
-  football: General_questions_on_football.topics as GenericTopics,
-  science: General_questions_on_science.topics as GenericTopics,
-  mathematics: General_questions_on_mathematics.topics as GenericTopics,
-  general_knowledge: General_questions_on_general_knowledge.topics as GenericTopics,
-  english: General_questions_on_english.topics as GenericTopics,
-};
-
-/* ─────────────────────────────────────────────────────────
-   Category emoji map
-───────────────────────────────────────────────────────── */
-const CATEGORY_EMOJI_MAP: Record<string, Record<string, string>> = {
-  computing: {
-    ComponentsOfComputers: "🖥️",
-    NumberSystemsAndDataRepresentation: "🔢",
-    TechnologyInTheCommunity: "🌐",
-    HealthAndSafetyInICT: "🛡️",
-    NetworkingAndCommunications: "📡",
-    WordProcessing: "📝",
-    Spreadsheets: "📊",
-    PresentationSoftware: "🎞️",
-    DatabasesAndDataManagement: "🗄️",
-    CyberSecurity: "🔒",
-    OperatingSystemsAndSoftware: "⚙️",
-    Robotics: "🤖",
-    ArtificialIntelligenceAndMachineLearning: "🧠",
-    Programming: "💻",
-    WebDevelopment: "🌍",
-  },
-  football: {
-    Africa: "🌍", Asia: "🌏", Europe: "🌎", America: "🗽", Global: "🌐",
-  },
-  science: {
-    Biology: "🧬", Chemistry: "⚗️", Physics: "⚡", EarthScience: "🌏", SpaceScience: "🚀",
-  },
-  mathematics: {
-    NumberAndAlgebra: "🔢",
-    GeometryAndMeasure: "📐",
-    StatisticsAndProbability: "📊",
-    Calculus: "∫",
-    FinancialMathematics: "💰",
-  },
-  general_knowledge: {
-    History: "📜",
-    Geography: "🗺️",
-    ScienceAndTechnology: "💡",
-    ArtsAndCulture: "🎭",
-    CurrentAffairs: "📰",
-  },
-  english: {
-    ReadingComprehension: "📖",
-    GrammarAndLanguageStructure: "🔤",
-    Vocabulary: "💬",
-    WritingSkills: "✍️",
-    Punctuation: "❕",
-    LiteraryDevicesAndFigurativeLanguage: "🎨",
-    Poetry: "🎭",
-    ProseFiction: "📚",
-    Drama: "🎬",
-    OralCommunicationAndListening: "🎤",
-    SpellingAndWordStudy: "🔡",
-    MediaAndInformationLiteracy: "📰",
-  },
-};
-
-/* ─────────────────────────────────────────────────────────
-   Helpers
-───────────────────────────────────────────────────────── */
-function categoryLabel(key: string): string {
-  return key.replace(/([A-Z])/g, " $1").replace(/And/g, "&").trim();
+interface Aspirant {
+  id: string;
+  name: string;
+  email: string;
 }
 
-function stripPrefix(subtopic: string): string {
-  return subtopic.replace(/^[^:]+:\s*/, "").trim();
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getStrandForDataset(datasetKey: string): Strand | undefined {
-  return STRANDS.find((s) => s.dataset === datasetKey);
-}
+const generatePollId = () =>
+  `POLL_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(2, 7)
+    .toUpperCase()}`;
 
-/* ─────────────────────────────────────────────────────────
-   StepIndicator
-───────────────────────────────────────────────────────── */
-function StepIndicator({
-  step1Done,
-  step2Done,
-  step3Done,
-  activeStrandTitle,
-}: {
-  step1Done: boolean;
-  step2Done: boolean;
-  step3Done: boolean;
-  activeStrandTitle?: string;
-}) {
-  const steps = [
-    { label: "Subject", done: step1Done },
-    { label: "Category", done: step2Done },
-    { label: "Topic", done: step3Done },
-  ];
+const isValidEmail = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  return (
-    <View style={stepStyles.wrapper}>
-      <View style={stepStyles.row}>
-        {steps.map((s, i) => (
-          <React.Fragment key={s.label}>
-            <View style={stepStyles.stepItem}>
-              <View style={[stepStyles.dot, s.done && stepStyles.dotActive]}>
-                {s.done ? (
-                  <Ionicons name="checkmark" size={15} color="#fff" />
-                ) : (
-                  <Text style={stepStyles.dotNum}>{i + 1}</Text>
-                )}
-              </View>
-              <Text style={[stepStyles.label, s.done && stepStyles.labelActive]}>
-                {s.label}
-              </Text>
-            </View>
-            {i < steps.length - 1 && (
-              <View style={[stepStyles.connector, s.done && stepStyles.connectorActive]} />
-            )}
-          </React.Fragment>
-        ))}
-      </View>
+const pad2 = (n: number) => n.toString().padStart(2, "0");
+const toDateInputValue = (d: Date) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toTimeInputValue = (d: Date) =>
+  `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-    </View>
-  );
-}
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
-const stepStyles = StyleSheet.create({
-  wrapper: { paddingHorizontal: 16, paddingBottom: 16 },
-  row: { flexDirection: "row", alignItems: "center", marginTop: 20 },
-  stepItem: { alignItems: "center", flexDirection: "row", gap: 6 },
-  dot: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#fbeadfff",
-    borderWidth: 2, borderColor: "#f1aa77ff",
-    justifyContent: "center", alignItems: "center",
-  },
-  dotActive: { backgroundColor: "#fd9043ff", borderColor: "#f97316" },
-  dotNum: { fontSize: 11, fontWeight: "700", color: "#f97316" },
-  label: {
-    fontSize: 10, fontWeight: "700", color: "#000",
-    textTransform: "uppercase", letterSpacing: 0.6,
-  },
-  labelActive: { color: "#f97316" },
-  connector: {
-    flex: 1, height: 1.5, backgroundColor: "#e8ddd5", marginHorizontal: 6,
-  },
-  connectorActive: { backgroundColor: "#f97316" },
+export default function CreatePollScreen() {
+  const { userName, rawUserEmail } = useContext(GlobalContext);
 
+  const [title, setTitle] = useState("");
+  const [pollType, setPollType] = useState<PollType>("single");
+  const [aspirants, setAspirants] = useState<Aspirant[]>([
+    { id: "1", name: "", email: "" },
+    { id: "2", name: "", email: "" },
+  ]);
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [showResults, setShowResults] = useState(true);
+  const [publishing, setPublishing] = useState(false);
 
-  chip: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#fff7ed",
-    borderWidth: 1.5, borderColor: "#fed7aa",
-    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginLeft: 8,
-  },
-  chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#f97316" },
-  chipText: { fontSize: 11, fontWeight: "700", color: "#ea6c00" },
-});
+  // Logo
+  const [logoUri, setLogoUri] = useState<string | null>(null);       // local preview URI
+  const [logoUrl, setLogoUrl] = useState<string>("");                 // uploaded download URL
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
-/* ─────────────────────────────────────────────────────────
-   SearchBar
-───────────────────────────────────────────────────────── */
-function SearchBar({
-  value,
-  onChange,
-  onClear,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onClear: () => void;
-}) {
-  return (
-    <View style={searchStyles.wrap}>
-      <Ionicons name="search-outline" size={16} color="#94a3b8" style={searchStyles.icon} />
-      <TextInput
-        style={searchStyles.input}
-        value={value}
-        onChangeText={onChange}
-        placeholder="Search topics..."
-        placeholderTextColor="#b0b8c4"
-        returnKeyType="search"
-        clearButtonMode="never"
-        autoCorrect={false}
-        autoCapitalize="none"
-      />
-      {value.length > 0 && (
-        <TouchableOpacity onPress={onClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="close-circle" size={16} color="#94a3b8" />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
+  // Inline deadline picker
+  const [showDeadlinePicker, setShowDeadlinePicker] = useState(false);
+  const [pendingDate, setPendingDate] = useState<Date>(new Date());
 
-const searchStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#f5f6f8",
-    borderRadius: 12, borderWidth: 1, borderColor: "#e8e2dc",
-    marginHorizontal: 12, marginVertical: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    gap: 8,
-  },
-  icon: { flexShrink: 0 },
-  input: {
-    flex: 1, fontSize: 14, color: "#1e293b",
-    fontWeight: "400", padding: 0,
-  },
-});
+  // ── Aspirant helpers ────────────────────────────────────────────────────────
 
-/* ═══════════════════════════════════════════════════════
-   Main Screen
-═══════════════════════════════════════════════════════ */
-export default function PickTopicScreen() {
-  const router = useRouter();
-  const { userName } = useContext(GlobalContext);
+  const addAspirant = () => {
+    if (aspirants.length >= 10) return;
+    setAspirants((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", email: "" },
+    ]);
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!userName) router.replace("/");
-    }, [userName, router])
-  );
+  const removeAspirant = (id: string) => {
+    if (aspirants.length <= 2) return;
+    setAspirants((prev) => prev.filter((a) => a.id !== id));
+  };
 
-  const [expandedDatasets, setExpandedDatasets] = useState<Set<string>>(new Set());
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [selectedSubtopic, setSelectedSubtopic] = useState<string | null>(null);
-  const [selected, setSelected] = useState<{ title: string; dataset: string } | null>(null);
-  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>("");
-  const [hydrated, setHydrated] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
+  const updateAspirant = (id: string, field: "name" | "email", value: string) => {
+    setAspirants((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+    );
+  };
 
-  /* ── Load persisted selection on mount ── */
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const saved: PersistedSelection = JSON.parse(raw);
-          setExpandedDatasets(new Set(saved.expandedDatasets ?? []));
-          setExpandedCategories(new Set(saved.expandedCategories ?? []));
-          setSelectedSubtopic(saved.selectedSubtopic);
-          setSelected(saved.selected);
-          setSelectedCategoryKey(saved.selectedCategoryKey ?? "");
-        }
-      } catch (_) { }
-      finally {
-        setHydrated(true);
-      }
-    })();
-  }, []);
+  // ── Logo picker ─────────────────────────────────────────────────────────────
 
-  /* ── Persist selection whenever it changes ── */
-  useEffect(() => {
-    if (!hydrated) return;
-    if (selected && selectedSubtopic) {
-      const payload: PersistedSelection = {
-        expandedDatasets: Array.from(expandedDatasets),
-        expandedCategories: Array.from(expandedCategories),
-        selectedSubtopic,
-        selected,
-        selectedCategoryKey,
-      };
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => { });
-    } else {
-      AsyncStorage.removeItem(STORAGE_KEY).catch(() => { });
-    }
-  }, [selected, expandedDatasets, expandedCategories, selectedSubtopic, selectedCategoryKey, hydrated]);
-
-  /* ── Search filter ── */
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    const hits: Array<{
-      strand: Strand;
-      categoryKey: string;
-      subtopic: string;
-    }> = [];
-    for (const strand of STRANDS) {
-      if (!strand.active) continue;
-      const topics = DATASET_MAP[strand.dataset];
-      if (!topics) continue;
-      for (const catKey of Object.keys(topics)) {
-        for (const subtopic of topics[catKey]) {
-          const label = stripPrefix(subtopic).toLowerCase();
-          const cat = categoryLabel(catKey).toLowerCase();
-          if (label.includes(q) || cat.includes(q) || strand.title.toLowerCase().includes(q)) {
-            hits.push({ strand, categoryKey: catKey, subtopic });
-          }
-        }
-      }
-    }
-    return hits.slice(0, 30);
-  }, [searchQuery]);
-
-  /* ── Handlers ── */
-  const handleStrandTap = useCallback((strand: Strand) => {
-    if (!strand.active) return;
-    setExpandedDatasets((prev) => {
-      const next = new Set(prev);
-      next.has(strand.dataset) ? next.delete(strand.dataset) : next.add(strand.dataset);
-      return next;
-    });
-  }, []);
-
-  const handleCategoryTap = useCallback((categoryKey: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      next.has(categoryKey) ? next.delete(categoryKey) : next.add(categoryKey);
-      return next;
-    });
-  }, []);
-
-  const handleSubtopicSelect = useCallback(
-    (dataset: string, categoryKey: string, subtopic: string) => {
-      if (selectedSubtopic === subtopic) {
-        setSelectedSubtopic(null);
-        setSelected(null);
-        setSelectedCategoryKey("");
+  const pickLogo = async () => {
+    if (Platform.OS !== "web") {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Please allow access to your photo library to add a logo."
+        );
         return;
       }
-      setSelectedSubtopic(subtopic);
-      setSelected({ title: subtopic, dataset: `${dataset}__${categoryKey}__${subtopic}` });
-      setSelectedCategoryKey(categoryKey);
-    },
-    [selectedSubtopic]
-  );
+    }
 
-  const handleSearchResultSelect = useCallback(
-    (strand: Strand, categoryKey: string, subtopic: string) => {
-      setSearchQuery("");
-      setShowSearch(false);
-      setExpandedDatasets((prev) => new Set([...prev, strand.dataset]));
-      setExpandedCategories((prev) => new Set([...prev, categoryKey]));
-      handleSubtopicSelect(strand.dataset, categoryKey, subtopic);
-    },
-    [handleSubtopicSelect]
-  );
-
-  const handleProceed = useCallback(async () => {
-    if (!selected) return;
-
-    router.replace({
-      pathname: "./quiz",
-      params: {
-        topic: selected.title,
-        topic_category: selectedCategoryKey,
-        dataset: selected.dataset,
-        quizStatus: "online",
-      },
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
     });
-  }, [selected, selectedCategoryKey, router]);
 
-  const handleClearAll = useCallback(() => {
-    setExpandedDatasets(new Set());
-    setExpandedCategories(new Set());
-    setSelectedSubtopic(null);
-    setSelected(null);
-    setSelectedCategoryKey("");
-    setSearchQuery("");
-    setShowSearch(false);
-  }, []);
+    if (result.canceled || !result.assets?.length) return;
 
-  const step1Done = expandedDatasets.size > 0;
-  const step2Done = expandedCategories.size > 0;
-  const step3Done = !!selected;
+    const asset = result.assets[0];
+    setLogoUri(asset.uri);
+    setUploadingLogo(true);
 
-  const activeStrandTitle = useMemo(() => {
-    if (expandedDatasets.size === 0) return undefined;
-    return STRANDS.find((s) => expandedDatasets.has(s.dataset))?.title;
-  }, [expandedDatasets]);
+    try {
+      // Convert URI → blob (works on native + web)
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
 
-  const selectedDatasetKey = selected ? selected.dataset.split("__")[0] : null;
-  const selectedStrand = selectedDatasetKey ? getStrandForDataset(selectedDatasetKey) : null;
+      const ext = asset.uri.split(".").pop()?.split("?")[0] ?? "jpg";
+      const storagePath = `poll_logos/${rawUserEmail}/${generatePollId()}.${ext}`;
+      const storageRef = ref(storage, storagePath);
+
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+      setLogoUrl(downloadUrl);
+    } catch (err) {
+      console.error("Logo upload failed:", err);
+      Alert.alert("Upload failed", "Could not upload the image. Please try again.");
+      setLogoUri(null);
+      setLogoUrl("");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeLogo = () => {
+    setLogoUri(null);
+    setLogoUrl("");
+  };
+
+  // ── Deadline picker ─────────────────────────────────────────────────────────
+
+  const openDeadlinePicker = () => {
+    setPendingDate(deadline ?? new Date());
+    setShowDeadlinePicker(true);
+  };
+
+  const confirmDeadline = () => {
+    setDeadline(pendingDate);
+    setShowDeadlinePicker(false);
+  };
+
+  const cancelDeadline = () => setShowDeadlinePicker(false);
+
+  const handleNativeDateTimeChange = (_e: any, date?: Date) => {
+    if (date) setPendingDate(date);
+  };
+
+  const handleAndroidDateChange = (_e: any, date?: Date) => {
+    if (!date) return;
+    setPendingDate((prev) => {
+      const m = new Date(prev);
+      m.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      return m;
+    });
+  };
+
+  const handleAndroidTimeChange = (_e: any, time?: Date) => {
+    if (!time) return;
+    setPendingDate((prev) => {
+      const m = new Date(prev);
+      m.setHours(time.getHours(), time.getMinutes(), 0);
+      return m;
+    });
+  };
+
+  const handleWebDateChange = (e: any) => {
+    const val = e.target.value;
+    if (!val) return;
+    const [y, mo, d] = val.split("-").map(Number);
+    setPendingDate((prev) => {
+      const m = new Date(prev);
+      m.setFullYear(y, mo - 1, d);
+      return m;
+    });
+  };
+
+  const handleWebTimeChange = (e: any) => {
+    const val = e.target.value;
+    if (!val) return;
+    const [h, min] = val.split(":").map(Number);
+    setPendingDate((prev) => {
+      const m = new Date(prev);
+      m.setHours(h, min, 0);
+      return m;
+    });
+  };
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+
+  const duplicateEmails = aspirants
+    .map((a) => a.email.trim().toLowerCase())
+    .filter((e, i, arr) => e && arr.indexOf(e) !== i);
+
+  const isFormValid =
+    title.trim().length > 0 &&
+    !uploadingLogo &&
+    aspirants.every((a) => a.name.trim().length > 0 && isValidEmail(a.email)) &&
+    duplicateEmails.length === 0;
+
+  // ── Publish ─────────────────────────────────────────────────────────────────
+  //
+  // Writes to:
+  //   CREATOR_DB/{creatorEmail}
+  //   POLL_TITLE_DB/{creatorEmail}/polls/{pollId}
+  //   ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
+
+  const handlePublish = async () => {
+    if (!isFormValid || !rawUserEmail) return;
+    setPublishing(true);
+
+    try {
+      const creatorEmail = rawUserEmail;
+      const now = new Date();
+
+      // 1. Upsert creator in CREATOR_DB
+      const creatorRef = doc(db, "CREATOR_DB", creatorEmail);
+      const creatorSnap = await getDoc(creatorRef);
+      if (!creatorSnap.exists()) {
+        await setDoc(creatorRef, {
+          name: userName || "Unknown",
+          email: creatorEmail,
+          status: "active",
+          createdAt: serverTimestamp(),
+          dateCreated: now.toLocaleDateString(),
+          timeCreated: now.toLocaleTimeString(),
+        });
+      }
+
+      // 2. Verify creator is active
+      const latestSnap = await getDoc(creatorRef);
+      if (latestSnap.data()?.status !== "active") {
+        Alert.alert("Account inactive", "Your creator account is not active.");
+        return;
+      }
+
+      // 3. Generate poll ID
+      const pollId = generatePollId();
+
+      // 4. Save poll → POLL_TITLE_DB/{creatorEmail}/polls/{pollId}
+      await setDoc(doc(db, "POLL_TITLE_DB", creatorEmail, "polls", pollId), {
+        pollId,
+        title: title.trim(),
+        pollType,
+        isAnonymous,
+        showResults,
+        logoUrl,                                         // "" if no logo chosen
+        deadline: deadline ? deadline.toISOString() : null,
+        status: "active",
+        creatorEmail,
+        creatorName: userName || "Unknown",
+        aspirantCount: aspirants.length,
+        createdAt: serverTimestamp(),
+        dateCreated: now.toLocaleDateString(),
+        timeCreated: now.toLocaleTimeString(),
+      });
+
+      // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
+      //    votes always start at 0; use increment() for all future updates.
+      await Promise.all(
+        aspirants.map((aspirant) => {
+          const aspirantEmail = aspirant.email.trim().toLowerCase();
+          return setDoc(
+            doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, aspirantEmail),
+            {
+              name: aspirant.name.trim(),
+              email: aspirantEmail,
+              photo: "",
+              votes: 0,
+              pollId,
+              creatorEmail,
+              addedAt: serverTimestamp(),
+            }
+          );
+        })
+      );
+
+      Alert.alert("Poll published!", `"${title.trim()}" is now live.`, [
+        { text: "OK", onPress: () => router.navigate("./polls_list") },
+      ]);
+    } catch (err) {
+      console.error("Publish failed:", err);
+      Alert.alert("Error", "Failed to publish poll. Please try again.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // ── UI ───────────────────────────────────────────────────────────────────────
 
   return (
     <ReusableScreen>
-      <View style={{ flex: 1, backgroundColor: "#f0ebe3" }}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.navigate("./members_list")}
+            style={styles.backBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Create a Poll</Text>
+          <View style={{ width: 32 }} />
+        </View>
 
-        {/* ── White header bar ── */}
-        <View style={styles.headerTopBar}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => router.navigate({ pathname: "/chat/members_list" })}
-              activeOpacity={0.75}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-            </TouchableOpacity>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.pageSubtitle}>
+            Complete the fields below to set up your poll.
+          </Text>
 
-            <View style={styles.headerCenter}>
-              <Text style={styles.headerEyebrow}>Answer 5 questions & earn</Text>
-              <Text style={styles.headerTitle}>Pick A Topic</Text>
-            </View>
+          {/* ── Poll details ── */}
+          <Text style={styles.sectionLabel}>Poll details</Text>
 
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
-                onPress={() => {
-                  setShowSearch((v) => !v);
-                  if (showSearch) setSearchQuery("");
-                }}
-                activeOpacity={0.75}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={showSearch ? "close-outline" : "search-outline"}
-                  size={20}
-                  color={showSearch ? "#f97316" : "#f97316"}
-                />
-              </TouchableOpacity>
+          <Text style={styles.fieldLabel}>Title *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. SRC Presidential Poll, HTU"
+            placeholderTextColor="#b0b0b0"
+            value={title}
+            onChangeText={setTitle}
+            maxLength={120}
+            returnKeyType="next"
+          />
 
-              {selected && (
-                <TouchableOpacity
-                  style={styles.clearBtn}
-                  onPress={handleClearAll}
-                  activeOpacity={0.75}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="refresh-outline" size={19} color="#f97316" />
+          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>
+            Logo <Text style={styles.optional}>(Optional)</Text>
+          </Text>
+
+          {/* Logo preview */}
+          {logoUri ? (
+            <View style={styles.logoPreviewWrap}>
+              <Image source={{ uri: logoUri }} style={styles.logoPreview} resizeMode="cover" />
+              {uploadingLogo && (
+                <View style={styles.logoUploadOverlay}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={styles.logoUploadText}>Uploading…</Text>
+                </View>
+              )}
+              {!uploadingLogo && (
+                <TouchableOpacity style={styles.logoRemoveBtn} onPress={removeLogo}>
+                  <Ionicons name="close-circle" size={22} color="#ef4444" />
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-        </View>
+          ) : (
+            <TouchableOpacity style={styles.logoRow} onPress={pickLogo} activeOpacity={0.7}>
+              <Ionicons name="image-outline" size={18} color="#1F9F4E" />
+              <Text style={styles.logoText}>Tap to add logo or banner image</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* ── Step indicator ── */}
-        <View style={styles.headerStepSection}>
-          <StepIndicator
-            step1Done={step1Done}
-            step2Done={step2Done}
-            step3Done={step3Done}
-            activeStrandTitle={activeStrandTitle}
-          />
-        </View>
+          <View style={styles.sectionDivider} />
 
-        {/* ── Inline search bar ── */}
-        {showSearch && (
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onClear={() => setSearchQuery("")}
-          />
-        )}
+          {/* ── Poll type ── */}
+          <Text style={styles.sectionLabel}>Poll type</Text>
 
-        {/* ── Search results ── */}
-        {showSearch && searchQuery.trim().length > 0 && (
-          <View style={styles.searchResultsPanel}>
-            {searchResults.length === 0 ? (
-              <View style={styles.searchEmpty}>
-                <Ionicons name="search-outline" size={28} color="#c4bab2" />
-                <Text style={styles.searchEmptyText}>No topics found</Text>
-              </View>
-            ) : (
-              <ScrollView
-                style={styles.searchResultsScroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {searchResults.map((hit, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={styles.searchResultRow}
-                    onPress={() => handleSearchResultSelect(hit.strand, hit.categoryKey, hit.subtopic)}
-                    activeOpacity={0.72}
-                  >
-                    <View style={[styles.searchResultIcon, { backgroundColor: hit.strand.color + "18" }]}>
-                      <Ionicons name={hit.strand.icon} size={15} color={hit.strand.color} />
-                    </View>
-                    <View style={styles.searchResultText}>
-                      <Text style={styles.searchResultTitle} numberOfLines={1}>
-                        {stripPrefix(hit.subtopic)}
-                      </Text>
-                      <Text style={styles.searchResultMeta}>
-                        {hit.strand.title} · {categoryLabel(hit.categoryKey)}
-                      </Text>
-                    </View>
-                    <Ionicons name="arrow-forward-outline" size={14} color="#c4bab2" />
-                  </TouchableOpacity>
-                ))}
-                <View style={{ height: 8 }} />
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* ── Subject list ── */}
-        {!(showSearch && searchQuery.trim().length > 0) && (
-          <ScrollView
-            style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+          <TouchableOpacity
+            style={[styles.radioRow, pollType === "single" && styles.radioRowActive]}
+            onPress={() => setPollType("single")}
+            activeOpacity={0.8}
           >
-            <View style={styles.strandsWrapper}>
-              {STRANDS.map((strand) => {
-                const isOpen = expandedDatasets.has(strand.dataset);
-                const topics = DATASET_MAP[strand.dataset];
-                const categoryKeys = topics ? Object.keys(topics) : [];
-                const emojiMap = CATEGORY_EMOJI_MAP[strand.dataset] ?? {};
-
-                return (
-                  <StrandCard
-                    key={strand.dataset}
-                    strand={strand}
-                    isOpen={isOpen}
-                    categoryKeys={categoryKeys}
-                    topics={topics}
-                    emojiMap={emojiMap}
-                    expandedCategories={expandedCategories}
-                    selectedSubtopic={selectedSubtopic}
-                    onStrandTap={() => handleStrandTap(strand)}
-                    onCategoryTap={handleCategoryTap}
-                    onSubtopicSelect={handleSubtopicSelect}
-                  />
-                );
-              })}
+            <View style={styles.radioOuter}>
+              {pollType === "single" && <View style={styles.radioInner} />}
             </View>
-
-            <View style={{ height: 20 }} />
-          </ScrollView>
-        )}
-
-        {/* ── Footer ── */}
-        <View style={styles.footer}>
-          <View style={styles.footerInner}>
-            <View style={styles.footerTopicWrap}>
-              <View style={styles.footerLabelRow}>
-                <Text style={styles.footerLabel}>Selected Topic</Text>
-                {selected && <View style={styles.footerStatusDot} />}
-              </View>
-              <Text
-                style={[styles.footerTopic, !selected && styles.footerTopicEmpty]}
-                numberOfLines={1}
-              >
-                {selected ? stripPrefix(selected.title) : "Nothing selected yet"}
+            <View style={styles.radioText}>
+              <Text style={[styles.radioTitle, pollType === "single" && styles.radioTitleActive]}>
+                Single-Vote
               </Text>
-              {selected && selectedCategoryKey ? (
-                <Text style={styles.footerCategory} numberOfLines={1}>
-                  {selectedStrand?.title ?? ""} · {categoryLabel(selectedCategoryKey)}
+              <Text style={styles.radioDesc}>Each voter casts exactly one vote.</Text>
+            </View>
+            {pollType === "single" && (
+              <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.dividerThin} />
+
+          <TouchableOpacity
+            style={[styles.radioRow, pollType === "multiple" && styles.radioRowActive]}
+            onPress={() => setPollType("multiple")}
+            activeOpacity={0.8}
+          >
+            <View style={styles.radioOuter}>
+              {pollType === "multiple" && <View style={styles.radioInner} />}
+            </View>
+            <View style={styles.radioText}>
+              <Text style={[styles.radioTitle, pollType === "multiple" && styles.radioTitleActive]}>
+                Multiple-Voting
+              </Text>
+              <Text style={styles.radioDesc}>Each voter can vote for more than one aspirant.</Text>
+            </View>
+            {pollType === "multiple" && (
+              <Ionicons name="checkmark-circle" size={18} color="#1F9F4E" />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.sectionDivider} />
+
+          {/* ── Aspirants ── */}
+          <Text style={styles.sectionLabel}>Aspirants</Text>
+          <Text style={styles.fieldHint}>
+            Add candidates with their name and email (min 2, max 10)
+          </Text>
+
+          {aspirants.map((asp, index) => (
+            <View key={asp.id}>
+              <View style={styles.aspirantHeaderRow}>
+                <View style={styles.optionIndex}>
+                  <Text style={styles.optionIndexText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.aspirantLabel}>Aspirant {index + 1}</Text>
+                {aspirants.length > 2 && (
+                  <TouchableOpacity
+                    onPress={() => removeAspirant(asp.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#d1d5db" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Text style={styles.subFieldLabel}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. John Mensah"
+                placeholderTextColor="#b0b0b0"
+                value={asp.name}
+                onChangeText={(t) => updateAspirant(asp.id, "name", t)}
+                maxLength={80}
+                returnKeyType="next"
+              />
+
+              <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>Email Address *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  asp.email.trim() && !isValidEmail(asp.email) && styles.inputError,
+                  duplicateEmails.includes(asp.email.trim().toLowerCase()) && styles.inputError,
+                ]}
+                placeholder="e.g. john@example.com"
+                placeholderTextColor="#b0b0b0"
+                value={asp.email}
+                onChangeText={(t) => updateAspirant(asp.id, "email", t)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                maxLength={120}
+                returnKeyType="next"
+              />
+              {asp.email.trim() && !isValidEmail(asp.email) && (
+                <Text style={styles.errorText}>Invalid email address</Text>
+              )}
+              {duplicateEmails.includes(asp.email.trim().toLowerCase()) && (
+                <Text style={styles.errorText}>
+                  Duplicate — each aspirant must have a unique email
                 </Text>
-              ) : (
-                <Text style={styles.footerHintText}>Tap a topic pill above to select</Text>
+              )}
+
+              {index < aspirants.length - 1 && (
+                <View style={[styles.dividerThin, { marginTop: 16 }]} />
               )}
             </View>
+          ))}
 
-            <TouchableOpacity
-              style={[styles.proceedBtn, selected ? { backgroundColor: "orange" } : styles.proceedBtnDisabled]}
-              onPress={selected ? handleProceed : undefined}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.proceedText}>Start</Text>
-              <View style={[styles.proceedIconBox, { backgroundColor: selected ? "#e38c0a" : "#d1c9c0" }]}>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </View>
+          {aspirants.length < 10 && (
+            <TouchableOpacity style={styles.addOptionBtn} onPress={addAspirant}>
+              <Ionicons name="add-circle-outline" size={16} color="#1F9F4E" />
+              <Text style={styles.addOptionText}>Add aspirant</Text>
             </TouchableOpacity>
+          )}
+
+          <View style={styles.sectionDivider} />
+
+          {/* ── Settings ── */}
+          <Text style={styles.sectionLabel}>Settings</Text>
+
+          <Text style={styles.fieldLabel}>
+            Voting deadline <Text style={styles.optional}>(Optional)</Text>
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.deadlineRow, deadline ? styles.deadlineRowActive : null]}
+            onPress={openDeadlinePicker}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#1F9F4E" />
+            <Text style={[styles.deadlineText, deadline ? styles.deadlineTextActive : null]}>
+              {deadline ? deadline.toLocaleString() : "Set end date & time"}
+            </Text>
+            {deadline && (
+              <TouchableOpacity
+                onPress={() => setDeadline(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={16} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+
+          {/* Inline deadline picker */}
+          {showDeadlinePicker && (
+            <View style={styles.inlinePickerBox}>
+              <Text style={styles.inlinePickerPreview}>
+                {pendingDate.toLocaleString()}
+              </Text>
+
+              {Platform.OS === "ios" && (
+                <DateTimePicker
+                  value={pendingDate}
+                  mode="datetime"
+                  display="spinner"
+                  onChange={handleNativeDateTimeChange}
+                  minimumDate={new Date()}
+                  style={{ width: "100%" }}
+                />
+              )}
+
+              {Platform.OS === "android" && (
+                <View style={styles.androidPickersRow}>
+                  <DateTimePicker
+                    value={pendingDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleAndroidDateChange}
+                    minimumDate={new Date()}
+                    style={styles.androidSpinner}
+                  />
+                  <DateTimePicker
+                    value={pendingDate}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleAndroidTimeChange}
+                    style={styles.androidSpinner}
+                  />
+                </View>
+              )}
+
+              {Platform.OS === "web" && (
+                <View style={styles.webPickersRow}>
+                  <input
+                    type="date"
+                    value={toDateInputValue(pendingDate)}
+                    min={toDateInputValue(new Date())}
+                    onChange={handleWebDateChange}
+                    style={webInputStyle}
+                  />
+                  <input
+                    type="time"
+                    value={toTimeInputValue(pendingDate)}
+                    onChange={handleWebTimeChange}
+                    style={webInputStyle}
+                  />
+                </View>
+              )}
+
+              <View style={styles.inlinePickerActions}>
+                <TouchableOpacity onPress={cancelDeadline} style={styles.inlineCancelBtn}>
+                  <Text style={styles.inlineCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={confirmDeadline} style={styles.inlineDoneBtn}>
+                  <Text style={styles.inlineDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.dividerThin} />
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <Text style={styles.toggleLabel}>Anonymous voting</Text>
+              <Text style={styles.toggleDesc}>
+                Voter identities will be hidden from results.
+              </Text>
+            </View>
+            <Switch
+              value={isAnonymous}
+              onValueChange={setIsAnonymous}
+              trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
+              thumbColor={isAnonymous ? "#1F9F4E" : "#9ca3af"}
+            />
           </View>
-        </View>
-      </View>
+
+          <View style={styles.dividerThin} />
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <Text style={styles.toggleLabel}>Show live results</Text>
+              <Text style={styles.toggleDesc}>
+                Voters can see results as voting progresses.
+              </Text>
+            </View>
+            <Switch
+              value={showResults}
+              onValueChange={setShowResults}
+              trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
+              thumbColor={showResults ? "#1F9F4E" : "#9ca3af"}
+            />
+          </View>
+
+          {/* ── Publish ── */}
+          <TouchableOpacity
+            style={[
+              styles.publishBtn,
+              (!isFormValid || publishing) && styles.publishBtnDisabled,
+            ]}
+            onPress={handlePublish}
+            activeOpacity={0.85}
+            disabled={!isFormValid || publishing}
+          >
+            {publishing ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <MaterialIcons name="how-to-vote" size={18} color="#fff" />
+                <Text style={styles.publishText}>Publish Poll</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.footerNote}>
+            Once published, the poll will be visible to all community members.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ReusableScreen>
   );
 }
 
-/* ─────────────────────────────────────────────────────────
-   StrandCard
-───────────────────────────────────────────────────────── */
-function StrandCard({
-  strand, isOpen, categoryKeys, topics, emojiMap,
-  expandedCategories, selectedSubtopic,
-  onStrandTap, onCategoryTap, onSubtopicSelect,
-}: {
-  strand: Strand;
-  isOpen: boolean;
-  categoryKeys: string[];
-  topics: GenericTopics;
-  emojiMap: Record<string, string>;
-  expandedCategories: Set<string>;
-  selectedSubtopic: string | null;
-  onStrandTap: () => void;
-  onCategoryTap: (key: string) => void;
-  onSubtopicSelect: (dataset: string, categoryKey: string, subtopic: string) => void;
-}) {
-  return (
-    <View style={[styles.strandWrapper, isOpen && { borderColor: strand.color + "30", borderWidth: 1.5 }]}>
-      <TouchableOpacity
-        style={[styles.strandRow, isOpen && { backgroundColor: strand.bgColor }]}
-        onPress={onStrandTap}
-        activeOpacity={0.78}
-      >
-        {isOpen && <View style={[styles.accentStripe, { backgroundColor: strand.color }]} />}
-        <View style={[styles.strandIconWrap, { backgroundColor: strand.color + "18" }]}>
-          <Ionicons name={strand.icon} size={22} color={strand.color} />
-        </View>
-        <View style={styles.strandTextBlock}>
-          <Text style={[styles.strandTitle, isOpen && { color: strand.color }]}>{strand.title}</Text>
-          <Text style={styles.strandDesc} numberOfLines={1}>{strand.description}</Text>
-        </View>
-        <View style={styles.strandRight}>
-          <View style={[styles.badge, { backgroundColor: strand.color + "15" }]}>
-            <Text style={[styles.badgeText, { color: strand.color }]}>{categoryKeys.length}</Text>
-          </View>
-          <Ionicons
-            name={isOpen ? "chevron-up" : "chevron-down"}
-            size={17}
-            color={isOpen ? strand.color : "#cbd5e1"}
-          />
-        </View>
-      </TouchableOpacity>
+// ─── Web-only datetime input style ───────────────────────────────────────────
 
-      {isOpen && (
-        <View style={styles.categoryPanel}>
-          <Text style={[styles.categoryPanelLabel, { color: strand.color + "aa" }]}>CATEGORIES</Text>
-          {categoryKeys.map((catKey) => (
-            <CategoryRow
-              key={catKey}
-              catKey={catKey}
-              label={categoryLabel(catKey)}
-              emoji={emojiMap[catKey] ?? "📁"}
-              subtopics={topics[catKey] ?? []}
-              isCatOpen={expandedCategories.has(catKey)}
-              selectedSubtopic={selectedSubtopic}
-              strandColor={strand.color}
-              strandBgColor={strand.bgColor}
-              strandDataset={strand.dataset}
-              onCategoryTap={onCategoryTap}
-              onSubtopicSelect={onSubtopicSelect}
-            />
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   CategoryRow
-───────────────────────────────────────────────────────── */
-type CategoryRowProps = {
-  catKey: string;
-  label: string;
-  emoji: string;
-  subtopics: string[];
-  isCatOpen: boolean;
-  selectedSubtopic: string | null;
-  strandColor: string;
-  strandBgColor: string;
-  strandDataset: string;
-  onCategoryTap: (key: string) => void;
-  onSubtopicSelect: (dataset: string, categoryKey: string, subtopic: string) => void;
+const webInputStyle: any = {
+  flex: 1,
+  fontSize: 15,
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+  backgroundColor: "#fff",
+  color: "#1a1a1a",
+  outline: "none",
 };
 
-function CategoryRow({
-  catKey, label, emoji, subtopics,
-  isCatOpen, selectedSubtopic, strandColor, strandBgColor, strandDataset,
-  onCategoryTap, onSubtopicSelect,
-}: CategoryRowProps) {
-  return (
-    <View style={styles.categoryWrapper}>
-      <TouchableOpacity
-        style={[
-          styles.categoryRow,
-          isCatOpen && { backgroundColor: strandBgColor, borderColor: strandColor + "28" },
-        ]}
-        onPress={() => onCategoryTap(catKey)}
-        activeOpacity={0.75}
-      >
-        <Text style={styles.categoryEmoji}>{emoji}</Text>
-        <Text style={[styles.categoryLabel, isCatOpen && { color: strandColor, fontWeight: "700" }]}>
-          {label}
-        </Text>
-        <View style={styles.categoryRight}>
-          <View style={[styles.badge, { backgroundColor: strandColor + "12" }]}>
-            <Text style={[styles.badgeText, { color: strandColor }]}>{subtopics.length}</Text>
-          </View>
-          <Ionicons
-            name={isCatOpen ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={isCatOpen ? strandColor : "#cbd5e1"}
-          />
-        </View>
-      </TouchableOpacity>
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
-      {isCatOpen && (
-        <View style={styles.topicGrid}>
-          {subtopics.map((subtopic, si) => {
-            const isChosen = selectedSubtopic === subtopic;
-            const pillLabel = stripPrefix(subtopic);
-            return (
-              <TouchableOpacity
-                key={si}
-                style={[
-                  styles.topicPill,
-                  isChosen && { backgroundColor: strandColor, borderColor: strandColor },
-                ]}
-                onPress={() => onSubtopicSelect(strandDataset, catKey, subtopic)}
-                activeOpacity={0.72}
-              >
-                {isChosen && (
-                  <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 5 }} />
-                )}
-                <Text
-                  style={[styles.topicPillText, isChosen && { color: "#fff", fontWeight: "600" }]}
-                  numberOfLines={2}
-                >
-                  {pillLabel}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
-   Styles
-═══════════════════════════════════════════════════════ */
 const styles = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: "#e8e8eaff" },
 
-  // ── Header: now white, flat, no blobs ──────────────────────────────────────
-  headerTopBar: {
-    backgroundColor: "#ffffff",
-    paddingTop: 0,               // ✅ RootLayout owns status bar height
-    paddingBottom: 10,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
     borderBottomColor: "#e5e7eb",
   },
-
-  headerStepSection: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e8eaed",   // neutral — no longer orange-tinted
-  },
-
-  headerTopRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingTop: 10,
-  },
-  headerCenter: { alignItems: "center", flex: 1 },
-  headerEyebrow: {
-    fontSize: 10, fontWeight: "700", letterSpacing: 2.2,
-    color: "#f53206ff",               // muted grey on white
-    textTransform: "uppercase",
-  },
-  headerTitle: {
-    fontSize: 20, fontWeight: "800", color: "#ff9c1bff",   // dark on white
-    letterSpacing: -0.4, lineHeight: 26, position: "relative", top: 3,
-  },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-
-  // Icon buttons: grey border on white background
   backBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: "#fb7e2bff",
-    justifyContent: "center", alignItems: "center",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#EAF6EE",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  iconBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: "#fcf9f7ff",
-    borderWidth: 1, borderColor: "#f5d5b3ff",
-    justifyContent: "center", alignItems: "center",
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
+
+  scroll: { flex: 1, backgroundColor: "#fff" },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  pageSubtitle: { fontSize: 15, color: "#232323ff", textAlign: "center", marginBottom: 16 },
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1F9F4E",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 14,
   },
-  iconBtnActive: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#fed7aa",
-  },
-  clearBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: "#fcf9f7ff",
-    borderWidth: 1, borderColor: "#f5d5b3ff",
-    justifyContent: "center", alignItems: "center",
+  sectionDivider: {
+    height: 10,
+    backgroundColor: "#f3f4f6",
+    marginVertical: 20,
+    marginHorizontal: -16,
   },
 
-  searchResultsPanel: {
+  fieldLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
+  subFieldLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", marginBottom: 5 },
+  optional: { fontWeight: "400", color: "#9ca3af" },
+  fieldHint: { fontSize: 12, color: "#9ca3af", marginBottom: 12, marginTop: -8 },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: "#1a1a1a",
+    backgroundColor: "#fafafa",
+    ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
+  },
+  inputError: { borderColor: "#ef4444", backgroundColor: "#fff5f5" },
+  errorText: { fontSize: 11, color: "#ef4444", marginTop: 4, marginLeft: 2 },
+
+  // Logo
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#A2E0B8",
+    borderStyle: "dashed",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#EAF6EE",
+  },
+  logoText: { fontSize: 13, color: "#1F9F4E" },
+  logoPreviewWrap: {
+    position: "relative",
+    borderRadius: 10,
+    overflow: "hidden",
+    height: 160,
+    backgroundColor: "#f3f4f6",
+  },
+  logoPreview: { width: "100%", height: "100%" },
+  logoUploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  logoUploadText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  logoRemoveBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
     backgroundColor: "#fff",
-    borderBottomWidth: 1, borderBottomColor: "#e8e2dc",
-    maxHeight: 320,
-  },
-  searchResultsScroll: { flex: 1 },
-  searchEmpty: { alignItems: "center", paddingVertical: 28, gap: 8 },
-  searchEmptyText: { fontSize: 14, color: "#c4bab2", fontWeight: "500" },
-  searchResultRow: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: "#f5f0eb",
-  },
-  searchResultIcon: {
-    width: 34, height: 34, borderRadius: 10,
-    justifyContent: "center", alignItems: "center",
-  },
-  searchResultText: { flex: 1 },
-  searchResultTitle: { fontSize: 14, fontWeight: "600", color: "#1e293b" },
-  searchResultMeta: { fontSize: 11, color: "#94a3b8", marginTop: 2, fontWeight: "400" },
-
-  scrollArea: { flex: 1, backgroundColor: "#f0ebe3" },
-  scrollContent: { flexGrow: 1, paddingBottom: 120 },
-  strandsWrapper: { paddingHorizontal: 10, paddingTop: 10, gap: 10 },
-
-  strandWrapper: {
-    borderRadius: 16, overflow: "hidden", backgroundColor: "#fff",
-    borderWidth: 1, borderColor: "#ddd",
-  },
-  strandRow: {
-    flexDirection: "row", alignItems: "center", paddingVertical: 14,
-    paddingHorizontal: 14, backgroundColor: "#fff", minHeight: 68, position: "relative",
-  },
-  accentStripe: {
-    position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
-    borderTopLeftRadius: 16, borderBottomLeftRadius: 16,
-  },
-  strandIconWrap: {
-    width: 44, height: 44, borderRadius: 12,
-    justifyContent: "center", alignItems: "center", marginRight: 12, marginLeft: 6,
-  },
-  strandTextBlock: { flex: 1, justifyContent: "center", gap: 2 },
-  strandTitle: { fontSize: 15, fontWeight: "700", color: "#1e293b", letterSpacing: -0.1 },
-  strandDesc: { fontSize: 12, color: "#94a3b8", fontWeight: "400" },
-  strandRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, justifyContent: "center", alignItems: "center" },
-  badgeText: { fontSize: 12, fontWeight: "800" },
-
-  categoryPanel: {
-    backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#f1f5f9",
-    paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12,
-  },
-  categoryPanelLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 10, paddingHorizontal: 4 },
-  categoryWrapper: { marginBottom: 6 },
-  categoryRow: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
-    borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12,
-    borderWidth: 1, borderColor: "#f1f5f9", minHeight: 48,
-  },
-  categoryEmoji: { fontSize: 18, marginRight: 10, width: 24, textAlign: "center" },
-  categoryLabel: { flex: 1, fontSize: 14, fontWeight: "600", color: "#334155", letterSpacing: -0.1 },
-  categoryRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-
-  topicGrid: {
-    flexDirection: "row", flexWrap: "wrap", gap: 8,
-    paddingTop: 10, paddingHorizontal: 2, paddingBottom: 4,
-  },
-  topicPill: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
-    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9,
-    borderWidth: 1, borderColor: "#e2e8f0", minHeight: 38,
-  },
-  topicPillText: { fontSize: 13, color: "#475569", fontWeight: "500", maxWidth: 180 },
-
-  footer: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1, borderTopColor: "#ede8e2",
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === "ios" ? 32 : 18,
-  },
-  footerInner: { flexDirection: "row", alignItems: "center", gap: 12 },
-  footerTopicWrap: { flex: 1, paddingVertical: 2, minWidth: 0 },
-  footerLabelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 },
-  footerLabel: {
-    fontSize: 12, fontWeight: "700", color: "#000",
-    textTransform: "uppercase", letterSpacing: 1.5,
-  },
-  footerStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#f97316" },
-  footerTopic: { fontSize: 16, fontWeight: "800", color: "#f98f05ff", letterSpacing: -0.2 },
-  footerTopicEmpty: { color: "#666", fontWeight: "500" },
-  footerCategory: { fontSize: 11, color: "#a89b90", fontWeight: "400", marginTop: 2 },
-  footerHintText: { fontSize: 11, color: "#777", fontWeight: "400", marginTop: 2 },
-
-  proceedBtn: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    borderRadius: 14, paddingVertical: 13, paddingHorizontal: 18,
-  },
-  proceedBtnDisabled: { backgroundColor: "#e2ddd9" },
-  proceedText: { color: "#fff", fontWeight: "800", fontSize: 17, letterSpacing: 0.1 },
-  proceedIconBox: {
-    width: 28, height: 28, borderRadius: 8,
-    justifyContent: "center", alignItems: "center",
+    borderRadius: 12,
   },
 
-  footerBottomRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    marginTop: 10, gap: 12,
+  // Radio
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
   },
-  difficultyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  difficultyText: { fontSize: 11, color: "#a89b90", fontWeight: "400" },
+  radioRowActive: { backgroundColor: "#EAF6EE" },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#1F9F4E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#1F9F4E" },
+  radioText: { flex: 1 },
+  radioTitle: { fontSize: 15, fontWeight: "600", color: "#374151" },
+  radioTitleActive: { color: "#1F9F4E" },
+  radioDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
+
+  // Aspirants
+  aspirantHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 14,
+  },
+  aspirantLabel: { flex: 1, fontSize: 13, fontWeight: "700", color: "#374151" },
+  optionIndex: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#EAF6EE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionIndexText: { fontSize: 12, fontWeight: "700", color: "#1F9F4E" },
+  addOptionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 14 },
+  addOptionText: { fontSize: 13, color: "#1F9F4E", fontWeight: "600" },
+
+  // Deadline
+  deadlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: "#fafafa",
+    marginBottom: 8,
+  },
+  deadlineRowActive: { borderColor: "#1F9F4E", backgroundColor: "#EAF6EE" },
+  deadlineText: { flex: 1, fontSize: 14, color: "#9ca3af" },
+  deadlineTextActive: { color: "#1F9F4E", fontWeight: "500" },
+
+  // Inline picker
+  inlinePickerBox: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: "#fafafa",
+  },
+  inlinePickerPreview: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F9F4E",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  androidPickersRow: { flexDirection: "row", justifyContent: "center" },
+  androidSpinner: { flex: 1 },
+  webPickersRow: { flexDirection: "row", gap: 10 },
+  inlinePickerActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 16,
+    marginTop: 10,
+  },
+  inlineCancelBtn: { paddingVertical: 6, paddingHorizontal: 4 },
+  inlineCancelText: { fontSize: 14, fontWeight: "500", color: "#9ca3af" },
+  inlineDoneBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#1F9F4E",
+  },
+  inlineDoneText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+
+  // Toggles
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  toggleText: { flex: 1 },
+  toggleLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  toggleDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
+
+  dividerThin: { height: 0.5, backgroundColor: "#f3f4f6", marginVertical: 2 },
+
+  // Publish
+  publishBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#1F9F4E",
+    borderRadius: 14,
+    paddingVertical: 15,
+    marginTop: 24,
+    shadowColor: "#1F9F4E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  publishBtnDisabled: { backgroundColor: "#d1d5db", shadowOpacity: 0, elevation: 0 },
+  publishText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  footerNote: {
+    fontSize: 11,
+    color: "#9ca3af",
+    textAlign: "center",
+    marginTop: 12,
+    lineHeight: 16,
+  },
 });

@@ -79,7 +79,7 @@ export default function RootLayout() {
         <AuthProvider>
           <GlobalState>
             <MenuProvider>
-              <StatusBar style="light" backgroundColor="#f98304" translucent={false} />
+              <StatusBar style="light" backgroundColor="#1F9F4E" translucent={false} />
               <Stack
                 screenOptions={{
                   headerShown: false,

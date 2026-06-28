@@ -133,7 +133,6 @@ export default function LoginScreen() {
       </View>
     );
   }
-
   return (
     <ReusableScreen>
       <KeyboardAvoidingView

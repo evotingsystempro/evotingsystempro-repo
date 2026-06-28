@@ -30,7 +30,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { db } from "@/firebase";
+import { auth, createUserWithEmailAndPassword, db } from "@/firebase";
 import { useAuth } from "@/context/auth";
 import { GlobalContext } from "@/context/index";
 import BottomNav from "@/components/BottomNav";
@@ -61,7 +61,7 @@ const HYBRID_FP_COLLECTION = "Hybridfingerprint_DB";
 const PAGE_SIZE = 15;
 const ITEM_HEIGHT = 66;
 const PUSH_NOTIFICATION_URL =
-  "https://email-service-405496305969.us-central1.run.app/push_notification";
+  "https://email-service-1054780588098.us-central1.run.app/push_notification";
 
 const ADMIN_EMAILS: ReadonlySet<string> = new Set([
   "deborah0marie@gmail.com",
@@ -586,12 +586,11 @@ const Header = React.memo(function Header({
             style={headerStyles.backBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="arrow-back" size={17} color="#f97316" />
+            <Ionicons name="arrow-back" size={17} color="#34a73aff" />
           </TouchableOpacity>
-          <Image source={require("@/assets/images/LOGO.png")} style={{ width: 50, height: 50 }} />
           <View>
-            <Text style={headerStyles.brandName}>SmartPeople</Text>
-            <Text style={headerStyles.brandSub}>Community · {counts} members</Text>
+            <Text style={headerStyles.brandName}>eVotingSystemPro</Text>
+            {/* <Text style={headerStyles.brandSub}>Community · {counts} members</Text> */}
           </View>
         </View>
 
@@ -657,8 +656,8 @@ const headerStyles = StyleSheet.create({
   container: { backgroundColor: "#fff", borderBottomWidth: 0.5, borderBottomColor: "#e8e8e8", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
   row1: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   brand: { flexDirection: "row", alignItems: "center", gap: 5 },
-  backBtn: { width: 30, height: 30, borderRadius: 16, backgroundColor: "#f9e2cdff", alignItems: "center", justifyContent: "center" },
-  brandName: { fontSize: 20, fontWeight: "700", color: "#f97316", letterSpacing: -0.3 },
+  backBtn: { width: 30, height: 30, borderRadius: 16, backgroundColor: "#d1e4d5ff", alignItems: "center", justifyContent: "center" },
+  brandName: { fontSize: 18, fontWeight: "700", color: "#51985aff", letterSpacing: -0.3 },
   brandSub: { fontSize: 10, color: "#aaa", marginTop: -1 },
   rightActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   walletBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#16a34a", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12 },
@@ -680,10 +679,10 @@ const headerStyles = StyleSheet.create({
 // ─── Earn Real Cash Button styles ─────────────────────────────────────────────
 
 const earnStyles = StyleSheet.create({
-  floatContainer: { position: "absolute", bottom: 90, left: 20, right: 20, alignItems: "center", zIndex: 99, pointerEvents: "box-none" as any },
-  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 30, paddingVertical: 13, paddingHorizontal: 32, width: "70%", maxWidth: 320, overflow: "hidden", backgroundColor: "#16a34a", shadowColor: "#16a34a", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8 },
+  floatContainer: { position: "absolute", bottom: 90, left: 50, right: 50, alignItems: "center", zIndex: 99, pointerEvents: "box-none" as any },
+  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 30, paddingVertical: 13, paddingHorizontal: 25, overflow: "hidden", backgroundColor: "#16a34a", shadowColor: "#16a34a", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8 },
   shimmer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, backgroundColor: "transparent", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.25)" },
-  btnText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.3 },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 17, letterSpacing: 0.3 },
 });
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -808,6 +807,40 @@ export default function MembersList() {
     return unsubscribe;
   }, [userId, deviceId, logout]);
 
+
+
+  /* ── Silent Firebase Email Auth ── */
+
+  const PASSWORD = "NoPassword1234";
+  useEffect(() => {
+    if (!userId || !isConnectedNET) return;
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem("HAS_SIGN_IN_WITH_EMAIL_AND_PASSWORD");
+        const isCachedForThisUser = cached && JSON.parse(cached).userId === userId;
+        if (isCachedForThisUser) return;
+
+        try {
+          await createUserWithEmailAndPassword(auth, userId, PASSWORD);
+        } catch (err: any) {
+          if (err?.code !== "auth/email-already-in-use") {
+            console.error("❌ Auth failed:", err);
+            return;
+          }
+        }
+
+        await AsyncStorage.setItem(
+          "HAS_SIGN_IN_WITH_EMAIL_AND_PASSWORD",
+          JSON.stringify({ userId, authenticatedAt: Date.now() })
+        );
+      } catch (authErr) {
+        console.error("❌ Auth failed — aborting init:", authErr);
+      }
+    })();
+  }, [userId, isConnectedNET]);
+
+
+
   useEffect(() => {
     if (!userId || !deviceId || !isConnectedNET) return;
     if (initDone.current) return;
@@ -868,15 +901,15 @@ export default function MembersList() {
             console.error("SCOREBOARD_V5 creation failed:", err);
           }
 
-          fetch(PUSH_NOTIFICATION_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: "New user added",
-              body: rawUserEmail || "Unknown email",
-              data: { screen: "chat/members_list", commentId: 0 },
-            }),
-          }).catch((err) => console.warn("Push notification failed:", err));
+          /*  fetch(PUSH_NOTIFICATION_URL, {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({
+               title: "New user added",
+               body: rawUserEmail || "Unknown email",
+               data: { screen: "chat/members_list", commentId: 0 },
+             }),
+           }).catch((err) => console.warn("Push notification failed:", err)); */
         } else {
           if (userPassword) {
             updateDoc(memberRef, { userPassword }).catch((err) =>
@@ -905,6 +938,42 @@ export default function MembersList() {
       }
     })();
   }, [userId, deviceId, isConnectedNET]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Add this near the top of your file, outside the component
+
+
+  useEffect(() => {
+    const saveCreator = async () => {
+      const creatorName = userName;
+      const creatorEmail = rawUserEmail;
+
+      if (!creatorEmail) return;   // guard: don't run if email isn't ready yet
+
+      try {
+        const creatorRef = doc(db, "VOTING_POOL_DB", creatorEmail);
+        const creatorSnap = await getDoc(creatorRef);
+
+        if (!creatorSnap.exists()) {
+          await setDoc(creatorRef, {
+            name: creatorName || "Unknown",
+            email: creatorEmail,
+            status: "active",
+            createdAt: serverTimestamp(),
+            dateCreated: new Date().toLocaleDateString(),
+            timeCreated: new Date().toLocaleTimeString(),
+          });
+        } else {
+          await updateDoc(creatorRef, { status: "active" });
+        }
+      } catch (err) {
+        console.error("Creator save failed:", err);
+      }
+    };
+
+    saveCreator();
+  }, [userId, deviceId, isConnectedNET]);
+
+
 
   const visibleMembers = useMemo<MemberItem[]>(() => {
     if (!members?.length) return [];
@@ -1040,7 +1109,7 @@ export default function MembersList() {
 
   const setApp_update_status_action = () => {
     setApp_update_status(Platform.OS === "web" ? false : !isConnectedNET ? false : true)
-    router.replace("/");
+    router.replace("./members_list");
   }
 
   if (!deviceCheckDone || showLoader) {
@@ -1117,10 +1186,10 @@ export default function MembersList() {
           />
 
           <View style={earnStyles.floatContainer} pointerEvents="box-none">
-            <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./pickTopic")} activeOpacity={0.82}>
+            <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./PollsListScreen")} activeOpacity={0.82}>
               <View style={earnStyles.shimmer} />
-              <Ionicons name="cash-outline" size={18} color="#fff" style={{ marginRight: 7 }} />
-              <Text style={earnStyles.btnText}>Earn Real Cash</Text>
+              <Ionicons name="thumbs-down-sharp" size={18} color="#fff" style={{ marginRight: 7 }} />
+              <Text style={earnStyles.btnText}>Cast Your Vote</Text>
             </TouchableOpacity>
           </View>
 

@@ -16,7 +16,6 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { GlobalContext } from "@/context";
 import ReusableScreen from "@/components/ReusableScreen";
-import { Ionicons } from "@expo/vector-icons";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
@@ -146,15 +145,11 @@ export default function LoginScreen() {
 
             {/* ── Hero ── */}
             <View style={S.hero}>
-              <View style={S.logoGlowOuter}>
-                <View style={S.logoGlowInner}>
-                  <Image
-                    source={require("@/assets/images/LOGO.png")}
-                    style={S.logo}
-                    resizeMode="contain"
-                  />
-                </View>
-              </View>
+              <Image
+                source={require("@/assets/images/LOGO.png")}
+                style={S.logo}
+                resizeMode="contain"
+              />
               <Text style={S.appName}>Precision Voting App</Text>
               <View style={S.heroDivider}>
                 <View style={S.heroDividerLine} />
@@ -164,62 +159,27 @@ export default function LoginScreen() {
             </View>
 
             {/* ── Auth Card ── */}
-            <View style={S.authCard}>
-
-              {/* ── Top label ── */}
-              <View style={S.labelRow}>
-                <View style={S.labelLine} />
-                <View style={S.labelBadge}>
-                  <Ionicons name="lock-closed" size={11} color={T.brand} />
-                  <Text style={S.labelText}>Secure Sign-In</Text>
-                </View>
-                <View style={S.labelLine} />
-              </View>
-
-              {/* ── Google Button ── */}
-              <View style={S.btnWrapper}>
-                {/* Decorative outer ring */}
-                <View style={S.btnRingOuter}>
-                  <View style={S.btnRingInner}>
-                    <TouchableOpacity
-                      onPress={handleGoogleSignIn}
-                      style={S.socialButton}
-                      activeOpacity={0.82}
-                    >
-                      <View style={S.googleIconWrap}>
-                        <Image
-                          source={require("@/assets/images/google-icon.png")}
-                          style={S.logoGoogle}
-                        />
-                      </View>
-                      <View style={S.btnTextBlock}>
-                        <Text style={S.socialBtnText}>Continue with Google</Text>
-                        <Text style={S.socialBtnSub}>Fast · Safe · One tap</Text>
-                      </View>
-                      <Ionicons name="arrow-forward-circle" size={22} color={T.brand} />
-                    </TouchableOpacity>
-                  </View>
+            <View style={S.btnWrapper}>
+              {/* Decorative outer ring */}
+              <View style={S.btnRingOuter}>
+                <View style={S.btnRingInner}>
+                  <TouchableOpacity
+                    onPress={handleGoogleSignIn}
+                    style={S.socialButton}
+                    activeOpacity={0.82}
+                  >
+                    <View style={S.googleIconWrap}>
+                      <Image
+                        source={require("@/assets/images/google-icon.png")}
+                        style={S.logoGoogle}
+                      />
+                    </View>
+                    <View style={S.btnTextBlock}>
+                      <Text style={S.socialBtnText}>Continue with Google</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </View>
-
-              {/* ── Trust badges ── */}
-              <View style={S.trustRow}>
-                <View style={S.trustBadge}>
-                  <Ionicons name="shield-checkmark" size={13} color={T.brand} />
-                  <Text style={S.trustText}>No password</Text>
-                </View>
-                <View style={S.trustDot} />
-                <View style={S.trustBadge}>
-                  <Ionicons name="flash" size={13} color={T.brand} />
-                  <Text style={S.trustText}>Instant access</Text>
-                </View>
-                <View style={S.trustDot} />
-                <View style={S.trustBadge}>
-                  <Ionicons name="person-circle" size={13} color={T.brand} />
-                  <Text style={S.trustText}>Your account</Text>
-                </View>
-              </View>
-
             </View>
 
           </View>
@@ -261,7 +221,7 @@ const S = StyleSheet.create({
   logoGlowOuter: {
     width: 96, height: 96, borderRadius: 48,
     backgroundColor: "rgba(22,163,74,0.16)",
-    alignItems: "center", justifyContent: "center", marginBottom: 14,
+    alignItems: "center", justifyContent: "center", marginBottom: 34,
   },
   logoGlowInner: {
     width: 78, height: 78, borderRadius: 39,
@@ -269,7 +229,7 @@ const S = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     borderWidth: 1.5, borderColor: "rgba(22,163,74,0.25)",
   },
-  logo: { width: 62, height: 62 },
+  logo: { width: 110, height: 110, position: "relative", bottom: 30 },
   appName: { fontSize: 25, fontWeight: "800", color: T.brand, letterSpacing: -0.6, marginBottom: 4 },
   appTagline: { fontSize: 22, fontWeight: "500", color: T.brandDeep, marginBottom: 20, textAlign: "center" },
   heroDivider: { flexDirection: "row", alignItems: "center", gap: 8, width: 120 },
@@ -279,13 +239,13 @@ const S = StyleSheet.create({
   /* ── Auth Card ── */
   authCard: {
     marginBottom: 32,
-    width: "100%",
+    // width: "100%",
     backgroundColor: "rgba(255, 255, 255, 0.88)",
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
-    borderWidth: 1,
+    borderWidth: 12,
     borderColor: "rgba(167,243,208,0.70)",
     gap: 20,
   },
@@ -299,15 +259,15 @@ const S = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
     borderWidth: 1, borderColor: T.brandBorder,
   },
-  labelText: { fontSize: 11, fontWeight: "700", color: T.brand, letterSpacing: 0.3 },
+  labelText: { fontSize: 15, fontWeight: "700", color: T.brand, letterSpacing: 0.3 },
 
   /* ── Button wrapper rings ── */
   btnWrapper: { alignItems: "center" },
   btnRingOuter: {
-    width: "100%",
+    // width: "100%",
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: "rgba(167,243,208,0.50)",
+    borderColor: "rgba(118, 219, 172, 0.5)",
     padding: 5,
     backgroundColor: "rgba(220,252,231,0.40)",
   },
@@ -323,8 +283,8 @@ const S = StyleSheet.create({
   socialButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 26,
+    paddingVertical: 14, alignSelf: "center",
     gap: 12,
   },
   googleIconWrap: {
@@ -339,9 +299,9 @@ const S = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  logoGoogle: { width: 22, height: 22 },
+  logoGoogle: { width: 27, height: 27 },
   btnTextBlock: { flex: 1 },
-  socialBtnText: { fontSize: 15, color: T.ink, fontWeight: "700" },
+  socialBtnText: { fontSize: 19, color: T.ink, fontWeight: "700" },
   socialBtnSub: { fontSize: 11, color: T.inkMuted, marginTop: 1 },
 
   /* ── Trust badges ── */

@@ -75,7 +75,7 @@ export default function IndexScreen() {
           },
         ]}
       >
-        <Ionicons name="shield-checkmark-sharp" size={50} color="#fd8c02ff" />
+        <Ionicons name="shield-checkmark-sharp" size={80} color="#2eae34ff" />
         <Text style={styles.appName}>Loading App...</Text>
       </Animated.View>
     </View>
@@ -93,8 +93,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   appName: {
-    color: "#fd8c02ff",
-    fontSize: 20,
+    color: "#28a245ff",
+    fontSize: 32,
     fontWeight: "bold",
     marginTop: 20,
     letterSpacing: 1,

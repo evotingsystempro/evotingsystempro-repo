@@ -47,7 +47,6 @@ import PopupMenu from "@/components/PupupMenu";
 import { UserStorageKeys } from "@/hooks/storageKeys";
 import ChatBanner from "@/components/ChatBanner";
 import { MenuProvider } from "react-native-popup-menu";
-import PupupMenuForScoreReset from "@/components/PupupMenuForScoreReset";
 
 export default function ScoreboardScreen() {
     const {
@@ -366,21 +365,21 @@ export default function ScoreboardScreen() {
                 return queued;
             });
         } else {
-            await uploadCommentToFirestore(localObj);
-            const SERVER_URL =
-                "https://email-service-405496305969.us-central1.run.app";
-            await fetch(`${SERVER_URL}/push_notification`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title: userName || "Guest",
-                    body: localObj.text || "Text comment",
-                    data: {
-                        screen: "chat/scoreboard_season_1",
-                        commentId: String(localObj.id),
-                    },
-                }),
-            });
+            /*  await uploadCommentToFirestore(localObj);
+             const SERVER_URL =
+                 "https://email-service-405496305969.us-central1.run.app";
+             await fetch(`${SERVER_URL}/push_notification`, {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({
+                     title: userName || "Guest",
+                     body: localObj.text || "Text comment",
+                     data: {
+                         screen: "chat/scoreboard_season_1",
+                         commentId: String(localObj.id),
+                     },
+                 }),
+             }); */
         }
     };
 
@@ -898,7 +897,7 @@ export default function ScoreboardScreen() {
                     >
                         <Ionicons name="arrow-back" size={20} color="#000" />
                     </TouchableOpacity>
-                    <Text style={styles.title}>SmartLearnersApp</Text>
+                    <Text style={styles.title}>All polls</Text>
                 </View>
                 <Text style={styles.subtitle}>
                     scoreboard •{" "}
@@ -1034,7 +1033,7 @@ const styles = StyleSheet.create({
     },
     backButtonText: { fontSize: 14, fontWeight: "600", color: "#000" },
     headerLeft: { flexDirection: "column" },
-    title: { color: "#0F172A", fontSize: 16, fontWeight: "700" },
+    title: { color: "#0F172A", fontSize: 18, fontWeight: "700" },
     subtitle: { color: "#6B7280", fontSize: 13, marginTop: 2 },
     scorePips: { flexDirection: "row", alignItems: "center", gap: 3 },
     pip: {

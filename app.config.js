@@ -1,20 +1,20 @@
 export default {
   expo: {
-    name: "Precision Voting App",
-    slug: "precisionvotingapp",
+    name: "P-Voting App",
+    slug: "evotingsystempro",
     version: "1.3.0",
     orientation: "portrait",
     icon: "./assets/images/round_icon.png",
-    scheme: "precisionvotingapp",
+    scheme: "evotingsystempro",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     notification: {
-      vapidPublicKey: "BJQoVFj-At3_o3aD_rTGa7fsMRwi48FT4YnQgh7LNibgrpeMczhBxo3eqrMlrR09afDoWFH7GGLxHEIfmTT-OWs",
+      vapidPublicKey: "BL1dK5OssbM41dRs6pUPlWlTx1WBi7yvHua6VCymQMbx5YqL15mezBdvJPasBcPgDyDhWF0Uu3MJP8ACxW_Gfmw",
       serviceWorkerPath: "./sw.js",
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.developershandle.precisionvotingapp",
+      bundleIdentifier: "com.developershandle.evotingsystempro",
       usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -25,7 +25,7 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#faf7f2ff",
       },
-      package: "com.developershandle.precisionvotingapp",
+      package: "com.developershandle.evotingsystempro",
       googleServicesFile: "./google-services.json",
     },
     web: {
@@ -35,7 +35,7 @@ export default {
       themeColor: "#000000",
     },
     plugins: [
-      ["expo-router", { origin: "https://precisionvotingapp.expo.app" }],
+      ["expo-router", { origin: "https://evotingsystempro.expo.app" }],
       [
         "expo-splash-screen",
         {
@@ -53,12 +53,12 @@ export default {
     },
     owner: "developershandle",
     extra: {
-      EXPO_PUBLIC_BASE_URL: "https://precisionvotingapp.expo.app",
+      EXPO_PUBLIC_BASE_URL: "https://evotingsystempro.expo.app",
       router: {
-        origin: "https://precisionvotingapp.expo.app",
+        origin: "https://evotingsystempro.expo.app",
       },
       eas: {
-        projectId: "2032dbcc-31f7-40d0-9590-94aad5dc5e25",
+        projectId: "de92720f-ae00-45d1-a0eb-56d2b3dff0e8",
       },
       expoConfig: {},
     },
