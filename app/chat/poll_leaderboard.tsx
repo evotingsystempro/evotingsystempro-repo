@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback, useRef } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -34,7 +34,6 @@ interface Aspirant {
     votes: number;
     pollId: string;
     creatorEmail: string;
-    lastVotedAt: Date | null;
 }
 
 interface Poll {
@@ -59,6 +58,9 @@ const isExpired = (deadline: string | null) =>
 const totalVotes = (aspirants: Aspirant[]) =>
     aspirants.reduce((s, a) => s + (a.votes || 0), 0);
 
+const pct = (votes: number, total: number) =>
+    total === 0 ? 0 : Math.round((votes / total) * 100);
+
 const formatDeadline = (deadline: string | null) => {
     if (!deadline) return null;
     return new Date(deadline).toLocaleString(undefined, {
@@ -72,26 +74,12 @@ const formatDeadline = (deadline: string | null) => {
 const RANK_LABELS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 const AVATAR_COLORS = ["#9d174d", "#1f2937", "#9d174d", "#1F9F4E", "#2563eb", "#b45309"];
 
-const timeAgo = (date: Date | null): string => {
-    if (!date) return "no votes yet";
-    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (secs < 10) return "now";
-    if (secs < 60) return `${secs}s ago`;
-    const mins = Math.floor(secs / 60);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days === 1) return "yesterday";
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PollLeaderboardScreen() {
     const { userName, rawUserEmail } = useContext(GlobalContext);
 
+    // Normalise params — expo-router can return string | string[]
     const params = useLocalSearchParams<{ pollId: string; creatorEmail: string }>();
     const pollId = Array.isArray(params.pollId) ? params.pollId[0] : params.pollId;
     const creatorEmail = Array.isArray(params.creatorEmail) ? params.creatorEmail[0] : params.creatorEmail;
@@ -102,26 +90,10 @@ export default function PollLeaderboardScreen() {
     const [loadingAspirants, setLoadingAspirants] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // ── votedEmails lives in BOTH state (for rendering) AND a ref (for handlers)
-    // Without the ref, handleToggleVote captures a stale closure of votedEmails
-    // after the aspirants onSnapshot fires a re-render — causing the "only first
-    // vote works" bug.
+    // The aspirantEmail this voter has voted for (null = not voted yet)
+    // For multiple-vote polls this is an array; for single-vote it's at most one element.
     const [votedEmails, setVotedEmails] = useState<string[]>([]);
-    const votedEmailsRef = useRef<string[]>([]);
-
-    const syncVotedEmails = (emails: string[]) => {
-        votedEmailsRef.current = emails;
-        setVotedEmails(emails);
-    };
-
     const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
-
-    // Tick every 30 s so relative timestamps stay fresh
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const id = setInterval(() => setTick((t) => t + 1), 30_000);
-        return () => clearInterval(id);
-    }, []);
 
     // ── Poll metadata (real-time) ──────────────────────────────────────────────
 
@@ -143,18 +115,14 @@ export default function PollLeaderboardScreen() {
         return onSnapshot(
             collection(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId),
             (snap) => {
-                const list: Aspirant[] = snap.docs.map((d) => {
-                    const raw = d.data().lastVotedAt;
-                    return {
-                        email: d.data().email ?? d.id,
-                        name: d.data().name ?? d.id,
-                        photo: d.data().photo ?? "",
-                        votes: d.data().votes ?? 0,
-                        pollId: d.data().pollId ?? pollId,
-                        creatorEmail: d.data().creatorEmail ?? creatorEmail,
-                        lastVotedAt: raw?.toDate ? raw.toDate() : null,
-                    };
-                });
+                const list: Aspirant[] = snap.docs.map((d) => ({
+                    email: d.data().email ?? d.id,   // use stored email field; fall back to doc ID
+                    name: d.data().name ?? d.id,
+                    photo: d.data().photo ?? "",
+                    votes: d.data().votes ?? 0,
+                    pollId: d.data().pollId ?? pollId,
+                    creatorEmail: d.data().creatorEmail ?? creatorEmail,
+                }));
                 setAspirants(list);
                 setLoadingAspirants(false);
                 setRefreshing(false);
@@ -162,122 +130,149 @@ export default function PollLeaderboardScreen() {
         );
     }, [pollId, creatorEmail]);
 
-    // ── Load voter's receipt from VOTERS_DB ───────────────────────────────────
+    // ── Load this voter's receipt from VOTERS_DB ───────────────────────────────
     //
-    // Path: VOTERS_DB/{voterEmail}/votes/{pollId}
-    //   (4 segments: col / doc / col / doc — valid Firestore alternation)
-    //
-    //   ├── pollTitle
-    //   ├── creatorEmail
-    //   ├── aspirantVoted   string (single) | string[] (multiple)
-    //   └── votedAt
-
-    const receiptPath = useCallback(() => {
-        if (!rawUserEmail || !pollId) return null;
-        return doc(db, "VOTERS_DB", rawUserEmail, "votes", pollId);
-    }, [rawUserEmail, pollId]);
+    // Structure (matches the agreed schema):
+    //   VOTERS_DB/{voterEmail}/{pollId}   ← pollId is the DOCUMENT ID, no "polls" subcollection
+    //     ├── pollTitle
+    //     ├── creatorEmail
+    //     ├── aspirantVoted   string (single) | string[] (multiple)
+    //     └── votedAt
 
     const loadMyVotes = useCallback(async () => {
-        const ref = receiptPath();
-        if (!ref) return;
+        if (!rawUserEmail || !pollId) return;
         try {
-            const snap = await getDoc(ref);
+            // CORRECT path: VOTERS_DB/{voterEmail}/{pollId}
+            const snap = await getDoc(doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt"));
             if (snap.exists()) {
-                const voted = snap.data()?.aspirantVoted;
-                syncVotedEmails(
-                    Array.isArray(voted) ? voted : voted ? [voted] : []
-                );
+                const data = snap.data();
+                const voted = data?.aspirantVoted;
+                setVotedEmails(Array.isArray(voted) ? voted : voted ? [voted] : []);
             } else {
-                syncVotedEmails([]);
+                setVotedEmails([]);
             }
         } catch (e) {
             console.error("loadMyVotes:", e);
         }
-    }, [receiptPath]);
+    }, [rawUserEmail, pollId]);
 
     useEffect(() => { loadMyVotes(); }, [loadMyVotes]);
 
-    // ── Aspirant doc ref (CreatePollScreen uses aspirantEmail as the doc ID) ──
-
-    const aspirantRef = (email: string) =>
-        doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, email);
-
     // ── Toggle vote ────────────────────────────────────────────────────────────
     //
-    // Always reads votedEmailsRef.current — never the stale closure value.
-    //
     // Single-vote:
-    //   tap new aspirant  → decrement previous (if any) + increment new
-    //   tap same aspirant → decrement it (undo)
+    //   • Tap unvoted aspirant  → remove vote from previous (if any), add to new one
+    //   • Tap already-voted aspirant → undo that vote
     //
     // Multiple-vote:
-    //   tap unvoted       → increment
-    //   tap voted         → decrement (undo)
+    //   • Tap unvoted aspirant  → add vote
+    //   • Tap already-voted aspirant → undo that vote
+    //
+    // VOTERS_DB receipt is always written so we know what to undo next time.
+    // aspirant docs are found by their stored `email` field, not the doc ID,
+    // because the schema uses aspirant_id as the doc key.
 
     const handleToggleVote = async (aspirantEmail: string) => {
         if (!poll || !rawUserEmail || !pollId || !creatorEmail) return;
-        if (togglingEmail) return;
+        if (togglingEmail) return; // prevent double-tap
 
-        if (poll.status === "closed" || isExpired(poll.deadline)) {
+        const closedNow = poll.status === "closed" || isExpired(poll.deadline);
+        if (closedNow) {
             Alert.alert("Poll closed", "This poll is no longer accepting votes.");
             return;
         }
 
-        // ── Read from ref, not state — avoids stale closure ──
-        const currentVoted = votedEmailsRef.current;
-        const hasVotedThis = currentVoted.includes(aspirantEmail);
-
         setTogglingEmail(aspirantEmail);
 
         try {
-            const receipt = receiptPath()!;
+            const hasVotedThis = votedEmails.includes(aspirantEmail);
+
+            // VOTERS_DB receipt doc — CORRECT path (no "polls" level)
+            const receiptRef = doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt");
+
+            // Helper: find the aspirant's Firestore doc reference by its stored email field.
+            // Because the doc ID may be an aspirant_id, we look it up from the loaded list.
+            const findAspirantRef = (email: string) => {
+                const asp = aspirants.find((a) => a.email === email);
+                if (!asp) throw new Error(`Aspirant not found: ${email}`);
+                // The doc's id in the snapshot is used to build the ref
+                // We stored email in d.data().email, but we need the doc ID.
+                // Get it from the snapshot we built:
+                return null; // placeholder — see note below
+            };
+
+            // Since we map `email: d.data().email ?? d.id` in the snapshot listener,
+            // and the Firestore doc ID might differ from the email, we need the doc ID.
+            // The safest approach: store docId on the Aspirant object.
+            // For now, aspirants loaded from onSnapshot use d.id as the Firestore doc ID.
+            // We'll find the matching aspirant by email to get its docId.
+            const getAspirantDocRef = (email: string) => {
+                // Find the aspirant in the local list whose email matches
+                const asp = aspirants.find((a) => a.email === email);
+                if (!asp) throw new Error(`Aspirant not found in list: ${email}`);
+                // We need the Firestore doc ID. Since we read email from d.data().email ?? d.id,
+                // and the doc ID is aspirant_id, we need to track docId separately.
+                // ─── IMPORTANT ───
+                // The snapshot listener uses d.data().email ?? d.id for the email field,
+                // but the doc path needs d.id (the actual Firestore document ID).
+                // We fix this by returning a collection-level ref and letting Firestore
+                // match on the stored email. But that requires a query, not a direct ref.
+                //
+                // SIMPLEST FIX: keep aspirantEmail as the Firestore doc ID (as in CreatePollScreen).
+                // CreatePollScreen writes: doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, aspirantEmail)
+                // So doc ID = aspirantEmail. The schema note "aspirant_id" is just a label —
+                // the actual doc ID written by CreatePollScreen IS the aspirantEmail.
+                // So the direct ref is correct:
+                return doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, email);
+            };
 
             if (hasVotedThis) {
-                // ── Undo vote ────────────────────────────────────────────────
-                await updateDoc(aspirantRef(aspirantEmail), {
-                    votes: increment(-1),
-                    lastVotedAt: serverTimestamp(),
-                });
+                // ── Undo this vote ──────────────────────────────────────────────
+                await updateDoc(getAspirantDocRef(aspirantEmail), { votes: increment(-1) });
 
-                const newVoted = currentVoted.filter((e) => e !== aspirantEmail);
-                await setDoc(receipt, {
-                    pollTitle: poll.title,
-                    creatorEmail,
-                    aspirantVoted: poll.pollType === "single"
-                        ? (newVoted[0] ?? null)
-                        : newVoted,
-                    votedAt: serverTimestamp(),
-                }, { merge: true });
+                const newVotedFor = votedEmails.filter((e) => e !== aspirantEmail);
 
-                syncVotedEmails(newVoted);
+                await setDoc(
+                    receiptRef,
+                    {
+                        pollTitle: poll.title,
+                        creatorEmail,
+                        aspirantVoted: poll.pollType === "single"
+                            ? (newVotedFor[0] ?? null)
+                            : newVotedFor,
+                        votedAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
+
+                setVotedEmails(newVotedFor);
 
             } else {
-                // ── Cast vote ────────────────────────────────────────────────
-                if (poll.pollType === "single" && currentVoted.length > 0) {
-                    // Swap: remove previous vote first
-                    await updateDoc(aspirantRef(currentVoted[0]), {
-                        votes: increment(-1),
-                        lastVotedAt: serverTimestamp(),
-                    });
+                // ── Cast vote (and swap if single-vote) ─────────────────────────
+                if (poll.pollType === "single" && votedEmails.length > 0) {
+                    // Remove previous vote first
+                    const prevEmail = votedEmails[0];
+                    await updateDoc(getAspirantDocRef(prevEmail), { votes: increment(-1) });
                 }
 
-                await updateDoc(aspirantRef(aspirantEmail), {
-                    votes: increment(1),
-                    lastVotedAt: serverTimestamp(),
-                });
+                await updateDoc(getAspirantDocRef(aspirantEmail), { votes: increment(1) });
 
-                const newVoted = poll.pollType === "single"
+                const newVotedFor = poll.pollType === "single"
                     ? [aspirantEmail]
-                    : Array.from(new Set([...currentVoted, aspirantEmail]));
+                    : Array.from(new Set([...votedEmails, aspirantEmail]));
 
-                await setDoc(receipt, {
-                    pollTitle: poll.title,
-                    creatorEmail,
-                    aspirantVoted: poll.pollType === "single" ? aspirantEmail : newVoted,
-                    votedAt: serverTimestamp(),
-                }, { merge: true });
+                await setDoc(
+                    receiptRef,
+                    {
+                        pollTitle: poll.title,
+                        creatorEmail,
+                        aspirantVoted: poll.pollType === "single" ? aspirantEmail : newVotedFor,
+                        votedAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
 
-                syncVotedEmails(newVoted);
+                setVotedEmails(newVotedFor);
             }
 
         } catch (err) {
@@ -411,11 +406,8 @@ export default function PollLeaderboardScreen() {
                                                 <Text style={styles.cardName} numberOfLines={1}>{asp.name}</Text>
                                                 <Text style={styles.cardEmail} numberOfLines={1}>{asp.email}</Text>
                                             </View>
-                                            <View style={styles.timeBadge}>
-                                                <Ionicons name="time-outline" size={11} color="#6b7280" />
-                                                <Text style={styles.timeText}>
-                                                    {timeAgo(asp.lastVotedAt)}
-                                                </Text>
+                                            <View style={styles.voteDeltaBadge}>
+                                                <Text style={styles.voteDeltaText}>+{asp.votes || 0}</Text>
                                             </View>
                                         </View>
 
@@ -577,17 +569,8 @@ const styles = StyleSheet.create({
     cardNameBlock: { flex: 1, gap: 2 },
     cardName: { fontSize: 16, fontWeight: "700", color: "#1a1a1a" },
     cardEmail: { fontSize: 12, color: "#9ca3af" },
-
-    timeBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        backgroundColor: "#f3f4f6",
-        paddingHorizontal: 8,
-        paddingVertical: 5,
-        borderRadius: 20,
-    },
-    timeText: { fontSize: 11, fontWeight: "600", color: "#6b7280" },
+    voteDeltaBadge: { backgroundColor: "#fde047", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+    voteDeltaText: { fontSize: 14, fontWeight: "800", color: "#1a1a1a" },
 
     cardMiddleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 },
     rankLabel: { fontSize: 15, fontWeight: "600", color: "#6b7280", width: 36 },

@@ -116,7 +116,7 @@ export default function BottomNav() {
       {/* Logout */}
       <TouchableOpacity
         style={styles.navItem}
-        onPress={() => router.navigate("./pickTopic")}
+        onPress={() => router.navigate("./create_poll_screen")}
       >
         <Ionicons name="add" size={24} color="#333" />
         <Text style={[styles.navText, { color: "#333" }]}>Task</Text>

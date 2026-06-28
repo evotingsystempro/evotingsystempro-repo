@@ -19,10 +19,9 @@ import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ReusableScreen from "@/components/ReusableScreen";
 import { GlobalContext } from "@/context";
-//import { db, storage } from "@/firebase";
+import { db, storage } from "@/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "@/firebase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
