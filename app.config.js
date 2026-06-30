@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "P-Voting App",
+    name: "eVoting System Pro",
     slug: "evotingsystempro",
     version: "1.3.0",
     orientation: "portrait",

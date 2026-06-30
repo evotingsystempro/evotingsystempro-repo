@@ -357,9 +357,6 @@ export default function CreatePollScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.pageSubtitle}>
-            Complete the fields below to set up your poll.
-          </Text>
 
           {publishedTitle && (
             <View style={styles.successBanner}>
@@ -410,7 +407,7 @@ export default function CreatePollScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. HTU-SRC Presidential Poll, 2026"
-              placeholderTextColor="#b0b0b0"
+              placeholderTextColor="#a1a1a1ff"
               value={title}
               onChangeText={setTitle}
               maxLength={120}
@@ -802,21 +799,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
 
-  scroll: { flex: 1, backgroundColor: "#eee" },
-  scrollContent: { padding: 14, paddingBottom: 40 },
-  pageSubtitle: { fontSize: 14, color: "#6b7280", textAlign: "center", marginBottom: 16, marginTop: 4 },
+  scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5, },
+  scrollContent: { paddingHorizontal: 4, paddingTop: 5, paddingBottom: 40 },
 
   // Section cards
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-      android: { elevation: 1 },
-      default: { boxShadow: "0 1px 4px rgba(0,0,0,0.06)" } as any,
-    }),
+    padding: 6,
+    borderWidth: 1.4,
+    borderColor: "#d9dad9ff",
+    marginBottom: 5,
   },
 
   sectionHeaderRow: {
@@ -833,7 +826,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
     color: "#1F9F4E",
     textTransform: "uppercase",
@@ -846,7 +839,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-  aspirantProgressText: { fontSize: 11, fontWeight: "700", color: "#6b7280" },
+  aspirantProgressText: { fontSize: 13, fontWeight: "700", color: "#6b7280" },
 
   fieldLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   subFieldLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", marginBottom: 5 },
@@ -855,17 +848,17 @@ const styles = StyleSheet.create({
 
   input: {
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e1e3ff",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
     fontSize: 14,
     color: "#1a1a1a",
-    backgroundColor: "#fafafa",
+    backgroundColor: "#f0f1f2ff",
     ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
   },
   inputError: { borderColor: "#ef4444", backgroundColor: "#fff5f5" },
-  errorText: { fontSize: 11, color: "#ef4444", marginTop: 4, marginLeft: 2 },
+  errorText: { fontSize: 13, color: "#ef4444", marginTop: 4, marginLeft: 2 },
 
   // Logo
   logoRow: {
@@ -1106,8 +1099,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   footerNote: {
-    fontSize: 11,
-    color: "#9ca3af",
+    fontSize: 13,
+    color: "#000",
     textAlign: "center",
     marginTop: 12,
     lineHeight: 16,

@@ -22,12 +22,6 @@ function useClientProfile() {
     userProfiles,
   } = useContext(GlobalContext);
 
-  // Debug
-  useEffect(() => {
-    console.log("clientIdxx:", clientId);
-    console.log("userProfilesxx:", userProfiles);
-  }, [clientId, userProfiles]);
-
   // Watch presence updates
   useEffect(() => {
     if (!clientId || clientId === currentUser?.id) return;
@@ -67,12 +61,12 @@ export function ClientHeaderProfile() {
   // Works both on native & web
   //On web after refresh, it will return false
   const handleBack = () => {
-  if (router.canGoBack()) {
-    router.back();
-  } else {
-    router.replace("../chat/members_list");// or wherever your home/index is
-  }
-};
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("../chat/members_list");// or wherever your home/index is
+    }
+  };
 
   return (
     <View style={styles.left}>

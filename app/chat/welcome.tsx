@@ -43,16 +43,16 @@ const sanitizeEmail = (email: string) =>
 /*  Design Tokens                                                              */
 /* ─────────────────────────────────────────────────────────────────────────── */
 const C = {
-  brand: "#1F9F4E",   // primary green
-  brandDeep: "#166534",   // dark green
-  brandLight: "#D1FAE5",   // light green
-  brandBorder: "#A7F3D0",   // soft green border
-  brandMuted: "#6FCF97",   // muted green
+  brand: "#1F9F4E",
+  brandDeep: "#166534",
+  brandLight: "#D1FAE5",
+  brandBorder: "#A7F3D0",
+  brandMuted: "#6FCF97",
   white: "#FFFFFF",
   ink: "#1A2E22",
   inkSoft: "#374151",
   inkMuted: "#6B7280",
-  bg: "#F0FDF4",   // very light green background
+  bg: "#F0FDF4",
   cardBg: "#FFFFFF",
   cardBorder: "#A7F3D0",
 };
@@ -103,8 +103,7 @@ const FeaturesCard: React.FC = () => (
       description={
         <>
           Create polls where each voter selects{" "}
-          <Text style={styles.highlightGreen}>exactly one candidate</Text>.
-          Perfect for elections, leadership votes, and referendums.
+          <Text style={styles.highlightGreen}>exactly one candidate</Text>
         </>
       }
     />
@@ -118,7 +117,7 @@ const FeaturesCard: React.FC = () => (
         <>
           Allow voters to select{" "}
           <Text style={styles.highlightBlue}>multiple candidates</Text> in a
-          single poll. Ideal for committee elections and ranked preference voting.
+          single poll.
         </>
       }
     />
@@ -448,11 +447,11 @@ const styles = StyleSheet.create({
   logoContainer: { borderRadius: 30 },
   logo: { width: 75, height: 75, borderRadius: 26 },
   title: {
-    fontSize: 23, fontWeight: "900",
+    fontSize: 20.7, fontWeight: "900",
     color: C.brand, letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13.3, color: C.inkMuted,
+    fontSize: 11.97, color: C.inkMuted,
     fontWeight: "600", letterSpacing: 0.3,
     textTransform: "uppercase",
   },
@@ -465,7 +464,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   welcomeText: {
-    color: C.white, fontSize: 17.1, fontWeight: "500",
+    color: C.white, fontSize: 15.39, fontWeight: "500",
   },
 
   /* ── Features Card ── */
@@ -484,7 +483,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   cardHeaderText: {
-    fontSize: 16.15, fontWeight: "800",
+    fontSize: 14.54, fontWeight: "800",
     color: C.ink, textTransform: "uppercase", letterSpacing: 0.5,
   },
   divider: { height: 1, backgroundColor: C.brandLight, marginBottom: 12 },
@@ -499,11 +498,11 @@ const styles = StyleSheet.create({
     flexShrink: 0, marginTop: 1,
   },
   featureTitle: {
-    fontSize: 16.625, fontWeight: "700",
+    fontSize: 14.96, fontWeight: "700",
     color: C.ink, marginBottom: 3,
   },
   listText: {
-    fontSize: 16.15, lineHeight: 24.7, color: C.inkSoft,
+    fontSize: 14.54, lineHeight: 24.7, color: C.inkSoft,
   },
 
   /* ── Action Buttons ── */
@@ -527,7 +526,7 @@ const styles = StyleSheet.create({
     borderRadius: 50, paddingVertical: 11, justifyContent: "center",
   },
   startText: {
-    color: "#fff", fontWeight: "700", fontSize: 16.15,
+    color: "#fff", fontWeight: "700", fontSize: 14.54,
     textTransform: "uppercase", letterSpacing: 0.5,
   },
 
@@ -539,7 +538,7 @@ const styles = StyleSheet.create({
     borderColor: C.brandBorder, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 5, maxWidth: "80%",
   },
-  userPillText: { fontSize: 15.2, color: C.brandDeep, fontWeight: "600" },
+  userPillText: { fontSize: 13.68, color: C.brandDeep, fontWeight: "600" },
 
   /* ── Footer ── */
   footerContainer: {
@@ -547,9 +546,9 @@ const styles = StyleSheet.create({
     borderColor: C.brandBorder, alignItems: "center",
     backgroundColor: C.white,
   },
-  footerBrand: { color: C.brand, fontWeight: "700", fontSize: 16.15 },
+  footerBrand: { color: C.brand, fontWeight: "700", fontSize: 14.54 },
   footerTag: {
-    color: C.inkMuted, fontSize: 13.3,
+    color: C.inkMuted, fontSize: 11.97,
     marginTop: 2, letterSpacing: 0.3,
   },
 

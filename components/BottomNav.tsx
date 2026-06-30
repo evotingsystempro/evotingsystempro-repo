@@ -119,7 +119,7 @@ export default function BottomNav() {
         onPress={() => router.navigate("./create_poll_screen")}
       >
         <Ionicons name="add" size={24} color="#333" />
-        <Text style={[styles.navText, { color: "#333" }]}>Task</Text>
+        <Text style={[styles.navText, { color: "#333" }]}>Create Poll</Text>
       </TouchableOpacity>
     </View>
   );

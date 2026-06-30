@@ -28,7 +28,7 @@ export default function PolicyTermsScreen() {
           <Ionicons name="arrow-back" size={22} color={T.white} onPress={() => router.back()} />
           <Text style={styles.headerTitle}>Privacy Policy & Terms of Use</Text>
         </View>
-        <Text style={styles.subHeader}>Precision Voting App</Text>
+        <Text style={styles.subHeader}>eVoting System Pro</Text>
       </View>
 
       {/* ===== SCROLLABLE CONTENT ===== */}
@@ -49,16 +49,16 @@ export default function PolicyTermsScreen() {
 
           <View style={styles.metaBox}>
             <Text style={styles.metaText}><Text style={styles.bold}>Effective Date:</Text> November 2, 2025</Text>
-            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> Precision Voting App Limited</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> eVoting System Pro Limited</Text>
             <Text style={styles.metaText}><Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076</Text>
           </View>
 
           <SectionHeader title="1. Introduction" />
           <Text style={styles.text}>
-            Precision Voting App Limited ("we," "our," or "us") operates a secure, transparent,
+            eVoting System Pro Limited ("we," "our," or "us") operates a secure, transparent,
             and tamper-proof digital voting platform. We are committed to protecting the integrity,
             confidentiality, and privacy of all voter data. This Privacy Policy explains how we
-            collect, use, store, and safeguard your information when you use the Precision Voting App.
+            collect, use, store, and safeguard your information when you use the eVoting System Pro.
           </Text>
 
           <SectionHeader title="2. Information We Collect" />
@@ -159,13 +159,13 @@ export default function PolicyTermsScreen() {
 
           <View style={styles.metaBox}>
             <Text style={styles.metaText}><Text style={styles.bold}>Effective Date:</Text> November 2, 2025</Text>
-            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> Precision Voting App Limited</Text>
+            <Text style={styles.metaText}><Text style={styles.bold}>Developer:</Text> eVoting System Pro Limited</Text>
             <Text style={styles.metaText}><Text style={styles.bold}>Contact:</Text> stanleyafon@gmail.com | +233 543 171 076</Text>
           </View>
 
           <SectionHeader title="1. Acceptance of Terms" />
           <Text style={styles.text}>
-            By accessing or using the Precision Voting App, you confirm that you have read,
+            By accessing or using the eVoting System Pro, you confirm that you have read,
             understood, and agreed to these Terms and Conditions in full. If you do not agree,
             you must discontinue use immediately. We reserve the right to update these terms
             at any time. Continued use after changes constitutes acceptance.
@@ -173,7 +173,7 @@ export default function PolicyTermsScreen() {
 
           <SectionHeader title="2. About the Platform" />
           <Text style={styles.text}>
-            Precision Voting App is a secure, auditable digital voting platform designed to
+            eVoting System Pro is a secure, auditable digital voting platform designed to
             conduct fair, transparent, and tamper-proof elections. The platform supports
             community polls, organizational elections, and competitive voting events, with
             features including real-time results, voter verification, and advanced anti-fraud mechanisms.
@@ -210,7 +210,7 @@ export default function PolicyTermsScreen() {
           <SectionHeader title="6. Election Administration" />
           <Text style={styles.text}>
             • Election administrators are responsible for configuring categories, deadlines, and eligibility rules.{"\n"}
-            • Precision Voting App Limited is not responsible for disputes from improperly configured elections.{"\n"}
+            • eVoting System Pro Limited is not responsible for disputes from improperly configured elections.{"\n"}
             • Administrators must comply with all applicable laws when conducting elections on this platform.{"\n"}
             • Published results are considered final unless formally challenged within 48 hours through proper dispute channels.
           </Text>
@@ -232,20 +232,20 @@ export default function PolicyTermsScreen() {
           <Text style={styles.text}>
             • Results are published in real-time or post-closure based on election configuration.{"\n"}
             • Aggregate results are public; individual voting choices remain strictly confidential.{"\n"}
-            • Precision Voting App Limited reserves the right to withhold or delay results pending fraud investigations.{"\n"}
+            • eVoting System Pro Limited reserves the right to withhold or delay results pending fraud investigations.{"\n"}
             • All result disputes must be formally raised within 48 hours of publication via the designated dispute channel.
           </Text>
 
           <SectionHeader title="9. Intellectual Property" />
           <Text style={styles.text}>
             All platform content, branding, algorithms, UI designs, and software are the
-            exclusive intellectual property of Precision Voting App Limited. You may not
+            exclusive intellectual property of eVoting System Pro Limited. You may not
             copy, reproduce, distribute, or create derivative works without prior written permission.
           </Text>
 
           <SectionHeader title="10. Limitation of Liability" />
           <Text style={styles.text}>
-            Precision Voting App Limited shall not be liable for:{"\n"}
+            eVoting System Pro Limited shall not be liable for:{"\n"}
             • Technical failures or outages beyond our reasonable control{"\n"}
             • Losses arising from unauthorized account access due to user negligence{"\n"}
             • Errors in election configuration made by administrators{"\n"}
@@ -276,7 +276,7 @@ export default function PolicyTermsScreen() {
             For questions, complaints, or legal notices:{"\n"}
             Email: stanleyafon@gmail.com{"\n"}
             Phone: +233 543 171 076{"\n"}
-            Address: Precision Voting App Limited, Ghana
+            Address: eVoting System Pro Limited, Ghana
           </Text>
         </View>
 
@@ -284,7 +284,7 @@ export default function PolicyTermsScreen() {
 
       {/* ===== FIXED FOOTER ===== */}
       <View style={styles.fixedFooter}>
-        <Text style={styles.footerText}>© 2025 Precision Voting App</Text>
+        <Text style={styles.footerText}>© 2025 eVoting System Pro</Text>
         <Text style={styles.footerSubText}>Empowering Communities to Vote with Precision</Text>
       </View>
 

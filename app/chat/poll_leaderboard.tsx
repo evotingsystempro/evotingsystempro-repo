@@ -76,6 +76,11 @@ const timeAgo = (date: Date | null): string => {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
+// Count how many times this voter has voted for a given aspirant
+// (used only for multiple-vote polls, where the same email can repeat)
+const countFor = (emails: string[], email: string) =>
+    emails.reduce((n, e) => (e === email ? n + 1 : n), 0);
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PollLeaderboardScreen() {
@@ -92,6 +97,8 @@ export default function PollLeaderboardScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [votedAt, setVotedAt] = useState<Date | null>(null);
 
+    const [lockedIndices, setLockedIndices] = useState<Set<number>>(new Set());
+
     // ── togglingEmail: state + ref so async guards never read stale values ─────
     const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
     const togglingEmailRef = useRef<string | null>(null);
@@ -101,6 +108,10 @@ export default function PollLeaderboardScreen() {
     };
 
     // ── votedEmails: state + ref so async handlers never read stale values ─────
+    // For "single" polls this holds at most one email.
+    // For "multiple" polls this holds ONE ENTRY PER VOTE CAST — duplicates
+    // are expected and intentional (e.g. ["x@x.com","x@x.com","y@y.com"]
+    // means 2 votes for x and 1 for y).
     const [votedEmails, setVotedEmails] = useState<string[]>([]);
     const votedEmailsRef = useRef<string[]>([]);
     const syncVotedEmails = useCallback((next: string[]) => {
@@ -108,12 +119,10 @@ export default function PollLeaderboardScreen() {
         setVotedEmails(next);
     }, []);
 
-    // Tick every 30 s so timeAgo labels refresh automatically
+    // Tick every 5 s so timeAgo labels refresh automatically
     const [, setTick] = useState(0);
     useEffect(() => {
-        //  const id = setInterval(() => setTick(t => t + 1), 30_000);
-        // Change 30_000 → 1_000 for per-second UI refresh
-        const id = setInterval(() => setTick(t => t + 1), 1_000);
+        const id = setInterval(() => setTick(t => t + 1), 5_000);
         return () => clearInterval(id);
     }, []);
 
@@ -156,7 +165,7 @@ export default function PollLeaderboardScreen() {
         );
     }, [pollId, creatorEmail]);
 
-    // ── Load my existing vote ─────────────────────────────────────────────────
+    // ── Load my existing vote(s) ──────────────────────────────────────────────
     // Path: VOTERS_DB/{voterEmail}/{pollId}/receipt
 
     const loadMyVotes = useCallback(async () => {
@@ -176,7 +185,6 @@ export default function PollLeaderboardScreen() {
                     syncVotedEmails([]);
                 }
 
-                // Store when the vote was cast
                 setVotedAt(at?.toDate ? at.toDate() : null);
             } else {
                 syncVotedEmails([]);
@@ -191,17 +199,14 @@ export default function PollLeaderboardScreen() {
 
     useEffect(() => { loadMyVotes(); }, [loadMyVotes]);
 
-    // ── Toggle vote ───────────────────────────────────────────────────────────
+    // ── Toggle vote — SINGLE-VOTE POLLS ONLY (unchanged) ──────────────────────
 
-    const handleToggleVote = async (aspirantEmail: string) => {
-        console.log("TAP →", aspirantEmail, "| togglingEmail:", togglingEmailRef.current, "| canVote:", !closed);
-
+    const handleToggleVote = async (aspirantEmail: string, index: number) => {
         if (!poll || !rawUserEmail || !pollId || !creatorEmail) {
             Alert.alert("Not ready", "Please wait a moment and try again.");
             return;
         }
 
-        // Guard reads from ref — never stale
         if (togglingEmailRef.current) return;
 
         if (poll.status === "closed" || isExpired(poll.deadline)) {
@@ -211,29 +216,22 @@ export default function PollLeaderboardScreen() {
 
         // 30-second lock for single-vote polls
         if (poll.pollType === "single" && votedAt) {
+            setLockedIndices(new Set());
             const secondsSinceVote = (Date.now() - votedAt.getTime()) / 1000;
             if (secondsSinceVote > 30) {
-                Alert.alert(
-                    "Vote locked",
-                    "Your vote was cast more than 30 seconds ago and can no longer be changed."
-                );
+                setLockedIndices(prev => new Set(prev).add(index));
                 return;
             }
         }
 
-        // Read from ref — closures over state can be stale
         const current = votedEmailsRef.current;
         const hasVotedThis = current.includes(aspirantEmail);
 
-        console.log("handleToggleVote →", { aspirantEmail, current, hasVotedThis, pollType: poll.pollType });
-
         setTogglingEmailSafe(aspirantEmail);
 
-        // All refs built fresh inside the call — never from stale outer constants
         const aspirantRef = (email: string) =>
             doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, email);
 
-        // VOTERS_DB/{voterEmail}/{pollId}/receipt
         const voterDocRef = doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt");
 
         try {
@@ -249,7 +247,7 @@ export default function PollLeaderboardScreen() {
                 await setDoc(voterDocRef, {
                     pollTitle: poll.title,
                     creatorEmail,
-                    aspirantVoted: poll.pollType === "single" ? (next[0] ?? null) : next,
+                    aspirantVoted: next[0] ?? null,
                     votedAt: serverTimestamp(),
                 }, { merge: true });
 
@@ -257,9 +255,8 @@ export default function PollLeaderboardScreen() {
                 syncVotedEmails(next);
 
             } else {
-                // ── Cast vote ─────────────────────────────────────────────────
-                if (poll.pollType === "single" && current.length > 0) {
-                    console.log("Swapping vote:", current[0], "→", aspirantEmail);
+                // ── Cast vote (swap if one already exists) ─────────────────────
+                if (current.length > 0) {
                     await updateDoc(aspirantRef(current[0]), {
                         votes: increment(-1),
                         lastVotedAt: serverTimestamp(),
@@ -271,14 +268,12 @@ export default function PollLeaderboardScreen() {
                     lastVotedAt: serverTimestamp(),
                 });
 
-                const next = poll.pollType === "single"
-                    ? [aspirantEmail]
-                    : Array.from(new Set([...current, aspirantEmail]));
+                const next = [aspirantEmail];
 
                 await setDoc(voterDocRef, {
                     pollTitle: poll.title,
                     creatorEmail,
-                    aspirantVoted: poll.pollType === "single" ? aspirantEmail : next,
+                    aspirantVoted: aspirantEmail,
                     votedAt: serverTimestamp(),
                 }, { merge: true });
 
@@ -295,9 +290,73 @@ export default function PollLeaderboardScreen() {
         }
     };
 
+    // ── Repeatable vote — MULTIPLE-VOTE POLLS ONLY (new) ──────────────────────
+    // A voter can press "+" on the SAME aspirant as many times as they like
+    // (e.g. 20 votes for X, then 50 votes for Y). "−" removes one vote at a
+    // time from that aspirant, down to a minimum of 0.
+
+    const handleMultiVote = async (aspirantEmail: string, delta: 1 | -1) => {
+        if (!poll || !rawUserEmail || !pollId || !creatorEmail) {
+            Alert.alert("Not ready", "Please wait a moment and try again.");
+            return;
+        }
+
+        if (togglingEmailRef.current) return;
+
+        if (poll.status === "closed" || isExpired(poll.deadline)) {
+            Alert.alert("Poll closed", "This poll is no longer accepting votes.");
+            return;
+        }
+
+        const current = votedEmailsRef.current;
+        const myCountForThis = countFor(current, aspirantEmail);
+
+        // Can't remove a vote that doesn't exist
+        if (delta === -1 && myCountForThis === 0) return;
+
+        setTogglingEmailSafe(aspirantEmail);
+
+        const aspirantRef = doc(db, "ASPIRANTS_DETAILS_DB", creatorEmail, pollId, aspirantEmail);
+        const voterDocRef = doc(db, "VOTERS_DB", rawUserEmail, pollId, "receipt");
+
+        try {
+            await updateDoc(aspirantRef, {
+                votes: increment(delta),
+                lastVotedAt: serverTimestamp(),
+            });
+
+            let next: string[];
+            if (delta === 1) {
+                // Add another vote for this aspirant — duplicates are allowed
+                next = [...current, aspirantEmail];
+            } else {
+                // Remove exactly one occurrence of this aspirant
+                next = [...current];
+                const removeIdx = next.lastIndexOf(aspirantEmail);
+                if (removeIdx !== -1) next.splice(removeIdx, 1);
+            }
+
+            // Overwrite the whole array — arrayUnion/arrayRemove would dedupe
+            // and break the "vote many times for the same aspirant" feature.
+            await setDoc(voterDocRef, {
+                pollTitle: poll.title,
+                creatorEmail,
+                aspirantVoted: next,
+                votedAt: serverTimestamp(),
+            }, { merge: true });
+
+            syncVotedEmails(next);
+        } catch (err: any) {
+            console.error("handleMultiVote error:", err);
+            Alert.alert("Vote failed", err?.message ?? "Could not update vote. Please try again.");
+            await loadMyVotes();
+        } finally {
+            setTogglingEmailSafe(null);
+        }
+    };
+
     const onRefresh = () => { setRefreshing(true); loadMyVotes(); };
 
-    // Add this ref alongside the others at the top of the component
     const sortedRef = useRef<Aspirant[]>([]);
 
     // ── Derived ───────────────────────────────────────────────────
@@ -307,10 +366,9 @@ export default function PollLeaderboardScreen() {
     const closed = poll?.status === "closed" || expired;
     const canVote = !closed;
     const total = totalVotes(aspirants);
+    const myTotalVotesCast = votedEmails.length; // total votes this voter has cast across all aspirants
     const loading = loadingPoll || loadingAspirants;
 
-    // Only re-sort when no vote operation is in flight —
-    // prevents the card list jumping and spinner appearing on wrong card
     const sorted = (() => {
         if (togglingEmailRef.current) return sortedRef.current;
         const next = [...aspirants].sort((a, b) => (b.votes || 0) - (a.votes || 0));
@@ -354,13 +412,30 @@ export default function PollLeaderboardScreen() {
 
     return (
         <ReusableScreen>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={1}>{poll.title}</Text>
-                <View style={{ width: 32 }} />
+            <View>
+                <View style={{ paddingTop: 16, paddingBottom: 5, marginHorizontal: 16, flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
+                    </TouchableOpacity>
+                    <View style={{ backgroundColor: "#fff", alignItems: "center", flexDirection: "column", justifyContent: "flex-end", flex: 1 }}>
+                        <View style={{ marginBottom: 5 }}><Text style={styles.headerTitle} numberOfLines={1}>{poll.title}</Text></View>
+                        <View style={styles.footerMeta}>
+                            <View><Text style={styles.footerMetaText}>Created by {poll.creatorName},</Text></View>
+                            {poll.isAnonymous && (
+                                <View style={styles.anonBadge}>
+                                    <Ionicons name="eye-off-outline" size={11} color="#6b7280" />
+                                    <Text style={styles.anonText}>Anonymous voting</Text>
+                                </View>
+                            )}
+                            <View style={{ backgroundColor: "#e0f5e4ff", paddingHorizontal: 10, paddingVertical: 2, borderRadius: 10 }}>
+                                <Text style={{ color: "#318e22ff", fontSize: 11, }}>
+                                    {poll.pollType === "single" ? "Single-vote poll" : "Multiple-vote poll"}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
             </View>
 
             <View style={styles.body}>
@@ -382,30 +457,50 @@ export default function PollLeaderboardScreen() {
                             </Text>
                         </View>
                         <View style={styles.metaChip}>
-                            <MaterialIcons name="how-to-vote" size={13} color="#6b7280" />
+                            <MaterialIcons name="how-to-vote" size={18} color="#6b7280" />
                             <Text style={styles.metaChipText}>{total} vote{total !== 1 ? "s" : ""}</Text>
                         </View>
                         <View style={styles.metaChip}>
-                            <Ionicons name="people-outline" size={13} color="#6b7280" />
+                            <Ionicons name="people-outline" size={18} color="#6b7280" />
                             <Text style={styles.metaChipText}>
                                 {aspirants.length} aspirant{aspirants.length !== 1 ? "s" : ""}
                             </Text>
                         </View>
-                        {/*      <View style={styles.metaChip}>
-                            <Ionicons name="person-outline" size={13} color="#6b7280" />
-                            <Text style={styles.YouVotedForText}>
-                                You voted for <Text style={{ fontSize: 12, padding: 3, paddingHorizontal: 10, backgroundColor: "#e6f4ea", borderRadius: 10 }}>{aspirants[0]?.name ?? "none"}</Text>
-                            </Text>
-                        </View> */}
+                        {poll.pollType === "multiple" && myTotalVotesCast > 0 && (
+                            <View style={styles.metaChip}>
+                                <Ionicons name="person-outline" size={14} color="#6b7280" />
+                                <Text style={styles.metaChipText}>
+                                    You've cast {myTotalVotesCast} vote{myTotalVotesCast !== 1 ? "s" : ""}
+                                </Text>
+                            </View>
+                        )}
                         {poll.deadline && (
                             <View style={styles.metaChip}>
-                                <Ionicons name="time-outline" size={13} color="#6b7280" />
-                                Voting ends: <Text style={{ fontSize: 12, color: "#fff", fontWeight: "600", padding: 5, paddingHorizontal: 10, backgroundColor: "#2fa550a4", borderRadius: 10 }}>{formatDeadline(poll.deadline)}</Text>
+                                <Ionicons name="time-outline" size={18} color="#6b7280" />
+                                <Text style={styles.metaChipText}>Voting ends: </Text>
+                                <Text style={styles.deadlinePill}>{formatDeadline(poll.deadline)}</Text>
                             </View>
                         )}
                     </View>
 
-                    <View style={styles.divider} />
+                    {alreadyVoted && poll.pollType === "single" ? (
+                        <View style={styles.noticeRow}>
+                            <Ionicons name="checkmark-circle" size={22} color="#1F9F4E" />
+                            <Text style={styles.noticeText}>
+                                {votedAt && (Date.now() - votedAt.getTime()) / 1000 <= 30
+                                    ? `You have ${Math.max(0, 30 - Math.floor((Date.now() - votedAt.getTime()) / 1000))}s left to change your vote.`
+                                    : "Your vote is now locked and cannot be changed."}
+                            </Text>
+                        </View>
+                    ) :
+                        (
+                            <View style={styles.noticeRow}>
+                                <Ionicons name="checkmark-circle" size={25} color="#1F9F4E" />
+                                <Text style={styles.noticeText}>1 vote = GHS 1.00, vote more for your aspirant to win. Load your wallet now</Text>
+                            </View>
+                        )
+
+                    }
 
                     {/* Aspirant cards */}
                     {sorted.length === 0 ? (
@@ -416,10 +511,13 @@ export default function PollLeaderboardScreen() {
                     ) : (
                         <View style={styles.cardsWrap}>
                             {sorted.map((asp, index) => {
+                                const isMultiple = poll.pollType === "multiple";
                                 const hasVotedThis = votedEmails.includes(asp.email);
+                                const myCountForThis = isMultiple ? countFor(votedEmails, asp.email) : (hasVotedThis ? 1 : 0);
                                 const isToggling = togglingEmail === asp.email;
                                 const rankLabel = RANK_LABELS[index] ?? `${index + 1}th`;
                                 const avatarColor = AVATAR_COLORS[index % AVATAR_COLORS.length];
+                                const isVoted = lockedIndices.has(index);
 
                                 return (
                                     <View key={asp.email} style={styles.card}>
@@ -442,56 +540,92 @@ export default function PollLeaderboardScreen() {
 
                                         {/* Middle row */}
                                         <View style={styles.cardMiddleRow}>
-                                            <Text style={styles.rankLabel}>{rankLabel}</Text>
-                                            <View style={styles.pointsCircle}>
-                                                <Text style={styles.pointsCircleText}>{asp.votes || 0}</Text>
+                                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                                <View><Text style={styles.rankLabel}>{rankLabel}</Text></View>
+                                                <View style={styles.pointsCircle}>
+                                                    <Text style={styles.pointsCircleText}>{asp.votes || 0}</Text>
+                                                </View>
+                                                <View><Text style={styles.pointsLabel}>Votes</Text></View>
                                             </View>
-                                            <Text style={styles.pointsLabel}>Votes</Text>
-                                            <View style={{ flex: 1 }} />
 
-                                            {isToggling ? (
-                                                <ActivityIndicator
-                                                    size="small"
-                                                    color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
-                                                    style={{ marginRight: 8 }}
-                                                />
-                                            ) : (
-                                                <TouchableOpacity
-                                                    onPress={() => handleToggleVote(asp.email)}
-                                                    // Use ref for disabled check — state can be stale
-                                                    disabled={!canVote || !!togglingEmailRef.current}
-                                                    activeOpacity={0.7}
-                                                    style={styles.thumbBtn}
-                                                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                                >
-                                                    <AntDesign
-                                                        name="like1"
-                                                        size={22}
-                                                        color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
-                                                    />
-                                                    <Text style={[styles.thumbCount, hasVotedThis && styles.thumbCountActive]}>
-                                                        {hasVotedThis ? 1 : 0}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            )}
+                                            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
+                                                <View>
+                                                    {isVoted && (
+                                                        <Text style={styles.alreadyVotedText}>Already voted</Text>
+                                                    )}
+                                                </View>
+
+                                                {!isMultiple ? (
+                                                    // ── SINGLE-VOTE: original toggle thumb (unchanged) ──────
+                                                    <View>
+                                                        {isToggling ? (
+                                                            <ActivityIndicator
+                                                                size="small"
+                                                                color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
+                                                                style={{ marginRight: 8 }}
+                                                            />
+                                                        ) : (
+                                                            <TouchableOpacity
+                                                                onPress={() => handleToggleVote(asp.email, index)}
+                                                                disabled={!canVote || !!togglingEmailRef.current}
+                                                                activeOpacity={0.7}
+                                                                style={styles.thumbBtn}
+                                                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                                            >
+                                                                <AntDesign
+                                                                    name="like1"
+                                                                    size={22}
+                                                                    color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
+                                                                />
+                                                                <Text style={[styles.thumbCount, hasVotedThis && styles.thumbCountActive]}>
+                                                                    {hasVotedThis ? 1 : 0}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </View>
+                                                ) : (
+                                                    // ── MULTIPLE-VOTE: repeatable +/- voting (new) ──────────
+                                                    <View style={styles.multiVoteRow}>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleMultiVote(asp.email, -1)}
+                                                            disabled={!canVote || !!togglingEmailRef.current || myCountForThis === 0}
+                                                            activeOpacity={0.7}
+                                                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                                            style={[styles.multiVoteBtn, myCountForThis === 0 && styles.multiVoteBtnDisabled]}
+                                                        >
+                                                            <Ionicons name="remove" size={16} color={myCountForThis === 0 ? "#d1d5db" : "#ef4444"} />
+                                                        </TouchableOpacity>
+
+                                                        {isToggling ? (
+                                                            <ActivityIndicator size="small" color="#1F9F4E" style={{ width: 28 }} />
+                                                        ) : (
+                                                            <Text
+                                                                style={[
+                                                                    styles.thumbCount,
+                                                                    myCountForThis > 0 && styles.thumbCountActive,
+                                                                    { width: 22, textAlign: "center" },
+                                                                ]}
+                                                            >
+                                                                {myCountForThis}
+                                                            </Text>
+                                                        )}
+
+                                                        <TouchableOpacity
+                                                            onPress={() => handleMultiVote(asp.email, 1)}
+                                                            disabled={!canVote || !!togglingEmailRef.current}
+                                                            activeOpacity={0.7}
+                                                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                                            style={styles.multiVoteBtn}
+                                                        >
+                                                            <Ionicons name="add" size={16} color="#1F9F4E" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
                                     </View>
                                 );
                             })}
-                        </View>
-                    )}
-
-                    <View style={styles.divider} />
-
-                    {/* Notices */}
-                    {alreadyVoted && poll.pollType === "single" && (
-                        <View style={styles.noticeRow}>
-                            <Ionicons name="checkmark-circle" size={16} color="#1F9F4E" />
-                            <Text style={styles.noticeText}>
-                                {votedAt && (Date.now() - votedAt.getTime()) / 1000 <= 30
-                                    ? `You have ${Math.max(0, 30 - Math.floor((Date.now() - votedAt.getTime()) / 1000))}s left to change your vote.`
-                                    : "Your vote is now locked and cannot be changed."}
-                            </Text>
                         </View>
                     )}
 
@@ -503,20 +637,6 @@ export default function PollLeaderboardScreen() {
                             </Text>
                         </View>
                     )}
-
-                    {/* Footer */}
-                    <View style={styles.footerMeta}>
-                        <Text style={styles.footerMetaText}>Created by {poll.creatorName}</Text>
-                        {poll.isAnonymous && (
-                            <View style={styles.anonBadge}>
-                                <Ionicons name="eye-off-outline" size={11} color="#6b7280" />
-                                <Text style={styles.anonText}>Anonymous voting</Text>
-                            </View>
-                        )}
-                        <Text style={styles.footerMetaText}>
-                            {poll.pollType === "single" ? "Single-vote poll" : "Multiple-vote poll"}
-                        </Text>
-                    </View>
                 </ScrollView>
             </View>
         </ReusableScreen>
@@ -540,17 +660,17 @@ const styles = StyleSheet.create({
         backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
     headerTitle: {
-        flex: 1, fontSize: 17, fontWeight: "700", color: "#1a1a1a",
+        flex: 1, fontSize: 16, fontWeight: "700", color: "#1a1a1a",
         textAlign: "center", marginHorizontal: 8, letterSpacing: -0.2,
     },
 
-    body: { flex: 1, backgroundColor: "#fff", margin: 5, borderRadius: 12, overflow: "hidden" },
-    scroll: { flex: 1, backgroundColor: "#eee", margin: 5 },
+    body: { flex: 1, backgroundColor: "#fff", margin: 2, borderRadius: 12, overflow: "hidden" },
+    scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5 },
     scrollContent: { paddingBottom: 20 },
 
     statusRow: {
-        flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap",
-        paddingHorizontal: 16, paddingVertical: 12, marginBottom: 7, backgroundColor: "#fff",
+        flexDirection: "row", alignItems: "center", gap: 2, flexWrap: "wrap",
+        paddingHorizontal: 3, paddingVertical: 10, backgroundColor: "#fff",
     },
     statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
     badgeActive: { backgroundColor: "#EAF6EE" },
@@ -564,13 +684,18 @@ const styles = StyleSheet.create({
     metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
     metaChipText: { fontSize: 14, color: "#6b7280" },
     YouVotedForText: { fontSize: 13, color: "#20792bff", fontWeight: "600" },
+    deadlinePill: {
+        fontSize: 12, color: "#fff", fontWeight: "600",
+        paddingVertical: 4, paddingHorizontal: 10,
+        backgroundColor: "#2fa550de", borderRadius: 20,
+        overflow: "hidden",
+    },
 
-    divider: { height: 0.5, backgroundColor: "#e5e7eb" },
-    cardsWrap: { paddingHorizontal: 3 },
+    cardsWrap: { paddingHorizontal: 0 },
 
     card: {
         backgroundColor: "#fff", borderRadius: 12, padding: 14,
-        borderWidth: 1, borderColor: "#ddd", marginBottom: 6,
+        borderWidth: 1, borderColor: "#ddd", marginBottom: 2,
     },
     cardTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     avatar: { width: 45, height: 45, borderRadius: 12, alignItems: "center", justifyContent: "center" },
@@ -585,7 +710,7 @@ const styles = StyleSheet.create({
     },
     timeBadgeText: { fontSize: 11, fontWeight: "600", color: "#6b7280" },
 
-    cardMiddleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 },
+    cardMiddleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 14 },
     rankLabel: { fontSize: 15, fontWeight: "600", color: "#6b7280", width: 36 },
     pointsCircle: {
         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
@@ -598,19 +723,33 @@ const styles = StyleSheet.create({
     thumbCount: { fontSize: 13, fontWeight: "600", color: "#9b9b9b" },
     thumbCountActive: { color: "#1F9F4E" },
 
+    // ── New: multi-vote +/- control (multiple-type polls only) ───────────────
+    multiVoteRow: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12 },
+    multiVoteBtn: {
+        width: 26, height: 26, borderRadius: 13,
+        backgroundColor: "#f3f4f6", alignItems: "center", justifyContent: "center",
+    },
+    multiVoteBtnDisabled: { backgroundColor: "#f9fafb" },
+
     noticeRow: {
-        flexDirection: "row", alignItems: "center", gap: 8,
-        marginHorizontal: 16, marginTop: 16, padding: 12,
-        borderRadius: 10, backgroundColor: "#EAF6EE",
+        flexDirection: "row", alignItems: "center",
+        marginHorizontal: 2, marginVertical: 5, padding: 12, gap: 4,
+        borderRadius: 10, backgroundColor: "#cffbe5e1", borderWidth: 3, borderColor: "#fff"
     },
     noticeRowClosed: { backgroundColor: "#fee2e2" },
-    noticeText: { fontSize: 13, color: "#1F9F4E", flex: 1, fontWeight: "500" },
+    noticeText: { lineHeight: 18, fontSize: 13, color: "#494c4aff", flex: 1, fontWeight: "500" },
     noticeTextClosed: { color: "#ef4444" },
 
-    footerMeta: { alignItems: "center", paddingHorizontal: 16, paddingTop: 24, gap: 4 },
+    footerMeta: { alignItems: "center", flexDirection: "row", paddingHorizontal: 2, paddingTop: 2, gap: 2, position: "relative", left: 3 },
     footerMetaText: { fontSize: 13, color: "#9ca3af", textAlign: "center" },
     anonBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
     anonText: { fontSize: 12, color: "#6b7280" },
 
     emptyAspirantsWrap: { alignItems: "center", paddingVertical: 40, gap: 10, backgroundColor: "#fff" },
+
+    alreadyVotedText: {
+        fontSize: 12,
+        color: "#ef4444",
+        fontWeight: "600",
+    },
 });

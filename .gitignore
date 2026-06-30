@@ -41,6 +41,8 @@ yarn-error.*
 
 # secrets & large datasets
 GoogleService-Info.plist
-#app-example
+DATASET
 google-services.json
 DATASET/google-services.json
+serviceAccountKey.json
+

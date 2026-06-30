@@ -150,7 +150,7 @@ export default function LoginScreen() {
                 style={S.logo}
                 resizeMode="contain"
               />
-              <Text style={S.appName}>Precision Voting App</Text>
+              <Text style={S.appName}>eVoting System Pro</Text>
               <View style={S.heroDivider}>
                 <View style={S.heroDividerLine} />
                 <View style={S.heroDividerDot} />
@@ -186,7 +186,7 @@ export default function LoginScreen() {
 
           {/* ── Footer ── */}
           <View style={S.footer}>
-            <Text style={S.footerCopy}>© 2026 Precision Voting App</Text>
+            <Text style={S.footerCopy}>© 2026 eVoting System Pro</Text>
             <TouchableOpacity onPress={() => router.push("./PrivacyPolicy&TermsOfUse")}>
               <Text style={S.footerLink}>Terms & Conditions · Privacy Policy</Text>
             </TouchableOpacity>
@@ -229,7 +229,7 @@ const S = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     borderWidth: 1.5, borderColor: "rgba(22,163,74,0.25)",
   },
-  logo: { width: 110, height: 110, position: "relative", bottom: 30 },
+  logo: { width: 100, height: 100, position: "relative", bottom: 30 },
   appName: { fontSize: 25, fontWeight: "800", color: T.brand, letterSpacing: -0.6, marginBottom: 4 },
   appTagline: { fontSize: 22, fontWeight: "500", color: T.brandDeep, marginBottom: 20, textAlign: "center" },
   heroDivider: { flexDirection: "row", alignItems: "center", gap: 8, width: 120 },
@@ -268,7 +268,7 @@ const S = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: "rgba(118, 219, 172, 0.5)",
-    padding: 5,
+    padding: 3,
     backgroundColor: "rgba(220,252,231,0.40)",
   },
   btnRingInner: {
@@ -283,8 +283,8 @@ const S = StyleSheet.create({
   socialButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 26,
-    paddingVertical: 14, alignSelf: "center",
+    paddingHorizontal: 12, paddingRight: 20,
+    paddingVertical: 7, alignSelf: "center",
     gap: 12,
   },
   googleIconWrap: {
@@ -301,7 +301,7 @@ const S = StyleSheet.create({
   },
   logoGoogle: { width: 27, height: 27 },
   btnTextBlock: { flex: 1 },
-  socialBtnText: { fontSize: 19, color: T.ink, fontWeight: "700" },
+  socialBtnText: { fontSize: 17, color: T.ink, fontWeight: "700" },
   socialBtnSub: { fontSize: 11, color: T.inkMuted, marginTop: 1 },
 
   /* ── Trust badges ── */

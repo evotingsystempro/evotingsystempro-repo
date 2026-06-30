@@ -193,6 +193,14 @@ export default function PollsListScreen() {
 
     // ── Loading ───────────────────────────────────────────────────────────────
 
+    const truncateMiddle = useCallback(
+        (value?: string, start = 6, end = 6): string | undefined => {
+            if (!value || value.length <= start + end) return value;
+            return `${value.slice(0, start)}…${value.slice(-end)}`;
+        },
+        []
+    );
+
     if (loading) {
         return (
             <ReusableScreen>
@@ -202,7 +210,6 @@ export default function PollsListScreen() {
                         <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>All Polls</Text>
-                    <View style={{ width: 32 }} />
                 </View>
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#1F9F4E" />
@@ -330,11 +337,16 @@ export default function PollsListScreen() {
                                     </View>
                                     <View style={styles.creatorInfo}>
                                         <Text style={styles.creatorName} numberOfLines={1}>
-                                            {group.creatorName}
+                                            <Text style={{ color: "#e70a9dff", fontSize: 12 }}>CREATOR: </Text>{group.creatorName}
                                         </Text>
-                                        <Text style={styles.creatorEmail} numberOfLines={1}>
-                                            {group.creatorEmail}
-                                        </Text>
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 7 }}>
+                                            <Text style={styles.creatorEmail} numberOfLines={1}>
+                                                {truncateMiddle(group.creatorEmail, 0, 17)}
+                                            </Text>
+                                            <Text style={{ fontSize: 11, color: "#1F9F4E", padding: 12, borderRadius: 14, fontWeight: "500", paddingVertical: 3, backgroundColor: "#e0f7fa" }}>
+                                                Verified
+                                            </Text>
+                                        </View>
                                     </View>
 
                                     <View style={styles.creatorRight}>
@@ -440,14 +452,14 @@ const styles = StyleSheet.create({
 
     header: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-        backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12,
-        borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb",
+        backgroundColor: "#fff", paddingHorizontal: 16, paddingTop: Platform.OS === "ios" ? 14 : 12,
+        // borderBottomWidth: 0.5, borderBottomColor: "#000",
     },
     backBtn: {
         width: 32, height: 32, borderRadius: 16,
         backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
-    headerTitle: { fontSize: 20, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
+    headerTitle: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
     headerCountPill: {
         minWidth: 30, height: 24, paddingHorizontal: 8, borderRadius: 12,
         backgroundColor: "#f3f4f6", alignItems: "center", justifyContent: "center",
@@ -456,17 +468,17 @@ const styles = StyleSheet.create({
 
     searchSection: {
         backgroundColor: "#fff",
-        borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb",
+        borderBottomWidth: 1, borderBottomColor: "#ccc",
         paddingBottom: 10,
     },
     searchWrap: {
         flexDirection: "row", alignItems: "center", gap: 8,
-        backgroundColor: "#f2f2f2ff", borderRadius: 12,
-        marginHorizontal: 16, marginTop: 12,
-        paddingHorizontal: 12, paddingVertical: 9,
+        backgroundColor: "#eee", borderRadius: 50,
+        marginHorizontal: 16, marginTop: 4,
+        paddingHorizontal: 12, paddingVertical: 9, marginBottom: 4,
     },
     searchInput: {
-        flex: 1, fontSize: 14, color: "#1a1a1a",
+        flex: 1, fontSize: 15, color: "#1a1a1a",
         paddingVertical: Platform.OS === "ios" ? 0 : 2,
         ...(Platform.OS === "web" && { outlineStyle: "none" } as any),
     },
@@ -493,8 +505,8 @@ const styles = StyleSheet.create({
     liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#1F9F4E" },
     liveBadgeText: { fontSize: 11, fontWeight: "700", color: "#1F9F4E" },
 
-    scroll: { flex: 1, backgroundColor: "#eee" },
-    scrollContent: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 40, gap: 12 },
+    scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5 },
+    scrollContent: { paddingHorizontal: 2, paddingTop: 3, paddingBottom: 40, gap: 8 },
     scrollEmpty: { flex: 1 },
 
     emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60, gap: 12 },
@@ -543,19 +555,19 @@ const styles = StyleSheet.create({
 
     pollInfo: { flex: 1, padding: 12, gap: 7 },
     pollTitleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
-    pollTitle: { flex: 1, fontSize: 14.5, fontWeight: "600", color: "#1a1a1a", lineHeight: 19 },
+    pollTitle: { flex: 1, fontSize: 13, fontWeight: "600", color: "#545454ff", lineHeight: 19 },
 
     pollMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
     metaChip: { flexDirection: "row", alignItems: "center", gap: 3 },
-    metaChipText: { fontSize: 11, color: "#6b7280" },
+    metaChipText: { fontSize: 12, color: "#6b7280" },
 
     pollFooterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    pollDate: { fontSize: 11, color: "#b0b0b0" },
+    pollDate: { fontSize: 12, color: "#b0b0b0" },
 
     statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, flexShrink: 0 },
     badgeActive: { backgroundColor: "#EAF6EE" },
     badgeClosed: { backgroundColor: "#f3f4f6" },
-    badgeText: { fontSize: 10.5, fontWeight: "700" },
+    badgeText: { fontSize: 12, fontWeight: "700" },
     badgeTextActive: { color: "#1F9F4E" },
     badgeTextClosed: { color: "#9ca3af" },
 });

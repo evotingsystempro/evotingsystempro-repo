@@ -87,6 +87,7 @@ export default function ScoreboardScreen() {
     const [commentData, setCommentData] = useState<Record<string, any>>({});
     const [selectedReplySub, setSelectedReplySub] = useState<string | null>(null);
 
+
     const {
         scoreboardData,
         setScoreboardData,
