@@ -41,6 +41,7 @@ interface Poll {
     creatorName: string;
     aspirantCount: number;
     dateCreated: string;
+    poll_verification_status?: "verified" | "not_verified";   // ← NEW
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -120,11 +121,11 @@ export default function PollLeaderboardScreen() {
     }, []);
 
     // Tick every 5 s so timeAgo labels refresh automatically
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const id = setInterval(() => setTick(t => t + 1), 5_000);
-        return () => clearInterval(id);
-    }, []);
+    /*   const [, setTick] = useState(0);
+      useEffect(() => {
+          const id = setInterval(() => setTick(t => t + 1), 5_000);
+          return () => clearInterval(id);
+      }, []); */
 
     // ── Poll metadata (live) ──────────────────────────────────────────────────
 
@@ -382,7 +383,7 @@ export default function PollLeaderboardScreen() {
         return (
             <ReusableScreen>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}
+                    <TouchableOpacity onPress={() => router.navigate("./PollsListScreen")} style={styles.backBtn}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
                     </TouchableOpacity>
@@ -408,7 +409,7 @@ export default function PollLeaderboardScreen() {
         );
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    // ── Render ───────────────────────────────────────<Text style={[styles.pollTitle, { flex: 1, }]} ellipsizeMode="tail" numberOfLines={2}>─────────────────────────
 
     return (
         <ReusableScreen>
@@ -419,7 +420,7 @@ export default function PollLeaderboardScreen() {
                         <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
                     </TouchableOpacity>
                     <View style={{ backgroundColor: "#fff", alignItems: "center", flexDirection: "column", justifyContent: "flex-end", flex: 1 }}>
-                        <View style={{ marginBottom: 5 }}><Text style={styles.headerTitle} numberOfLines={1}>{poll.title}</Text></View>
+                        <View style={{ marginBottom: 5 }}><Text style={styles.headerTitle} ellipsizeMode="tail" numberOfLines={1}>{poll.title}</Text></View>
                         <View style={styles.footerMeta}>
                             <View><Text style={styles.footerMetaText}>Created by {poll.creatorName},</Text></View>
                             {poll.isAnonymous && (
@@ -428,8 +429,8 @@ export default function PollLeaderboardScreen() {
                                     <Text style={styles.anonText}>Anonymous voting</Text>
                                 </View>
                             )}
-                            <View style={{ backgroundColor: "#e0f5e4ff", paddingHorizontal: 10, paddingVertical: 2, borderRadius: 10 }}>
-                                <Text style={{ color: "#318e22ff", fontSize: 11, }}>
+                            <View style={{ backgroundColor: "#04a988ff", paddingHorizontal: 10, paddingVertical: 2, borderRadius: 10 }}>
+                                <Text style={{ color: "#fff", fontSize: 11, }}>
                                     {poll.pollType === "single" ? "Single-vote poll" : "Multiple-vote poll"}
                                 </Text>
                             </View>
@@ -483,6 +484,15 @@ export default function PollLeaderboardScreen() {
                         )}
                     </View>
 
+                    {!alreadyVoted && poll.pollType === "single" && (
+                        <View style={styles.noticeRow}>
+                            <Ionicons name="checkmark-circle" size={22} color="#1F9F4E" />
+                            <Text style={styles.noticeText}>
+                                Cast your vote now! You have 30s to change your vote after voting.
+                            </Text>
+                        </View>
+                    )}
+
                     {alreadyVoted && poll.pollType === "single" ? (
                         <View style={styles.noticeRow}>
                             <Ionicons name="checkmark-circle" size={22} color="#1F9F4E" />
@@ -493,7 +503,7 @@ export default function PollLeaderboardScreen() {
                             </Text>
                         </View>
                     ) :
-                        (
+                        poll.pollType != "single" && (
                             <View style={styles.noticeRow}>
                                 <Ionicons name="checkmark-circle" size={25} color="#1F9F4E" />
                                 <Text style={styles.noticeText}>1 vote = GHS 1.00, vote more for your aspirant to win. Load your wallet now</Text>
@@ -529,8 +539,8 @@ export default function PollLeaderboardScreen() {
                                                 </Text>
                                             </View>
                                             <View style={styles.cardNameBlock}>
-                                                <Text style={styles.cardName} numberOfLines={1}>{asp.name}</Text>
-                                                <Text style={styles.cardEmail} numberOfLines={1}>{asp.email}</Text>
+                                                <Text style={styles.cardName} ellipsizeMode="tail" numberOfLines={1}>{asp.name}</Text>
+                                                <Text style={styles.cardEmail} ellipsizeMode="tail" numberOfLines={1}>{asp.email}</Text>
                                             </View>
                                             <View style={styles.timeBadge}>
                                                 <Ionicons name="time-outline" size={11} color="#6b7280" />
@@ -660,13 +670,13 @@ const styles = StyleSheet.create({
         backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
     headerTitle: {
-        flex: 1, fontSize: 16, fontWeight: "700", color: "#1a1a1a",
+        flex: 1, fontSize: 16, fontWeight: "700", color: "#1a1a1a", width: 280,
         textAlign: "center", marginHorizontal: 8, letterSpacing: -0.2,
     },
 
     body: { flex: 1, backgroundColor: "#fff", margin: 2, borderRadius: 12, overflow: "hidden" },
-    scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5 },
-    scrollContent: { paddingBottom: 20 },
+    scroll: { flex: 1, backgroundColor: "#e9ede7ff", margin: 5 },
+    scrollContent: { paddingBottom: 10 },
 
     statusRow: {
         flexDirection: "row", alignItems: "center", gap: 2, flexWrap: "wrap",
@@ -682,11 +692,11 @@ const styles = StyleSheet.create({
     statusTextActive: { color: "#1F9F4E" },
     statusTextClosed: { color: "#ef4444" },
     metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-    metaChipText: { fontSize: 14, color: "#6b7280" },
+    metaChipText: { fontSize: 13, color: "#6b7280" },
     YouVotedForText: { fontSize: 13, color: "#20792bff", fontWeight: "600" },
     deadlinePill: {
-        fontSize: 12, color: "#fff", fontWeight: "600",
-        paddingVertical: 4, paddingHorizontal: 10,
+        fontSize: 11, color: "#fff", fontWeight: "600",
+        paddingVertical: 3, paddingHorizontal: 7,
         backgroundColor: "#2fa550de", borderRadius: 20,
         overflow: "hidden",
     },
@@ -701,8 +711,8 @@ const styles = StyleSheet.create({
     avatar: { width: 45, height: 45, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     avatarText: { color: "#fff", fontWeight: "800", fontSize: 18 },
     cardNameBlock: { flex: 1, gap: 2 },
-    cardName: { fontSize: 16, fontWeight: "700", color: "#1a1a1a" },
-    cardEmail: { fontSize: 12, color: "#9ca3af" },
+    cardName: { width: 250, fontSize: 15, fontWeight: "700", color: "#1a1a1a" },
+    cardEmail: { width: 250, fontSize: 12, color: "#9ca3af" },
 
     timeBadge: {
         flexDirection: "row", alignItems: "center", gap: 4,

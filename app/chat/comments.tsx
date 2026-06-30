@@ -333,8 +333,6 @@ const EmptyState = () => {
           <Ionicons name="chatbubble-ellipses-outline" size={38} color={C.accent} />
         </View>
       </Animated.View>
-      <Text style={s.emptyTitle}>No comments yet</Text>
-      <Text style={s.emptySub}>Be the first to share your thoughts! 💬</Text>
     </View>
   );
 };

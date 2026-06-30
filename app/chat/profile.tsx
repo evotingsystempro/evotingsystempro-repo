@@ -2131,7 +2131,7 @@ const styles = StyleSheet.create({
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 5 },
-    profileName: { fontSize: 22, fontWeight: "700", color: "#222" },
+    profileName: { fontSize: 20, fontWeight: "700", color: "#222" },
     refreshButton: { backgroundColor: "#f8ab05", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 30 },
     refreshButtonText: { color: "#fff", fontWeight: "600", fontSize: 12 },
 

@@ -10,7 +10,7 @@ import { UserStorageKeys } from "@/hooks/storageKeys";
  * MUST MATCH backend VAPID public key EXACTLY
  */
 const VAPID_PUBLIC_KEY =
-    "BNefAFWAA_Cu77s6CFNwHErJLURFGtpdV9vaiXfLPUl5XIqz_MG9oHTvJkP201kIT69NOkWOLVn2a6OqxGX1l9o";
+    "BL1dK5OssbM41dRs6pUPlWlTx1WBi7yvHua6VCymQMbx5YqL15mezBdvJPasBcPgDyDhWF0Uu3MJP8ACxW_Gfmw";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);

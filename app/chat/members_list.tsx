@@ -523,7 +523,7 @@ const MemberListItem = React.memo(function MemberListItem({
 
       <View style={itemStyles.textBlock}>
         <Text numberOfLines={1} style={itemStyles.name}>
-          {isCurrentUser ? "You: " : ""}{item.clientName}
+          {isCurrentUser ? "You: " : ""}<Text style={{ fontSize: 15 }}>{item.clientName}</Text>
         </Text>
         <View style={itemStyles.metaRow}>
           <Text numberOfLines={1} style={itemStyles.email}>{truncateMiddle(item?.email, 0, 17)}</Text>
@@ -589,7 +589,7 @@ const Header = React.memo(function Header({
             <Ionicons name="arrow-back" size={17} color="#34a73aff" />
           </TouchableOpacity>
           <View>
-            <Text style={headerStyles.brandName}>eVotingSystemPro</Text>
+            <Text style={headerStyles.brandName}> eVotingSystemPro</Text>
             {/* <Text style={headerStyles.brandSub}>Community · {counts} members</Text> */}
           </View>
         </View>
@@ -610,22 +610,22 @@ const Header = React.memo(function Header({
       </View>
 
       <View style={headerStyles.row2}>
-        <TouchableOpacity onPress={() => router.navigate("./buy_reset_credit_screen")} style={headerStyles.creditBtn} activeOpacity={0.8}>
+        {/* <TouchableOpacity onPress={() => router.navigate("./buy_reset_credit_screen")} style={headerStyles.creditBtn} activeOpacity={0.8}>
           <Ionicons name="add-circle-outline" size={15} color="#fff" />
           <Text style={headerStyles.actionBtnText}>Buy Credit</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
-        <TouchableOpacity
+        {/*   <TouchableOpacity
           onPress={() => router.push({ pathname: "/chat/chat_room", params: { clientName: "Lydia Fauson", clientUriLetter: "", clientUriColor: "", clientIconUri: "ai_image" } })}
           style={headerStyles.helpBtn}
           activeOpacity={0.8}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={13} color="#fff" />
           <Text style={headerStyles.actionBtnText}>Help</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <View style={headerStyles.searchWrap}>
-          <Ionicons name="search-outline" size={13} color="#9ca3af" style={headerStyles.searchIcon} />
+          <Ionicons name="search-outline" size={21} color="#9ca3af" style={headerStyles.searchIcon} />
           <TextInput
             placeholder="Search…"
             placeholderTextColor="#9ca3af"
@@ -644,9 +644,9 @@ const Header = React.memo(function Header({
           )}
         </View>
 
-        <TouchableOpacity style={headerStyles.logoutBtn} onPress={onClearSession} activeOpacity={0.8} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+        {/*  <TouchableOpacity style={headerStyles.logoutBtn} onPress={onClearSession} activeOpacity={0.8} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
           <Ionicons name="log-out-outline" size={15} color="#fff" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </View>
   );
@@ -669,7 +669,7 @@ const headerStyles = StyleSheet.create({
   creditBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#ef4444", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 10, paddingRight: 12 },
   helpBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#f59e0b", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, paddingRight: 15 },
   actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  searchWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 20, backgroundColor: "#f9fafb", paddingHorizontal: 8, width: 95 },
+  searchWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 20, backgroundColor: "#f9fafb", paddingHorizontal: 8, paddingVertical: 4, width: "96%" },
   searchIcon: { marginRight: 3 },
   searchInput: { flex: 1, fontSize: 13, color: "#333", paddingVertical: 5, minWidth: 0, ...(Platform.OS === "web" && { outlineStyle: "none", outlineWidth: 0 } as any) },
   clearBtn: { padding: 2 },
@@ -680,9 +680,9 @@ const headerStyles = StyleSheet.create({
 
 const earnStyles = StyleSheet.create({
   floatContainer: { position: "absolute", bottom: 90, left: 50, right: 50, alignItems: "center", zIndex: 99, pointerEvents: "box-none" as any },
-  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 30, paddingVertical: 13, paddingHorizontal: 25, overflow: "hidden", backgroundColor: "#16a34a", shadowColor: "#16a34a", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8 },
+  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 30, paddingVertical: 10, paddingHorizontal: 20, overflow: "hidden", backgroundColor: "#16a34a", shadowColor: "#16a34a", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 8 },
   shimmer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, backgroundColor: "transparent", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.25)" },
-  btnText: { color: "#fff", fontWeight: "600", fontSize: 17, letterSpacing: 0.3 },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 15, letterSpacing: 0.3 },
 });
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -1136,8 +1136,6 @@ export default function MembersList() {
           onLogout={handleClearSession}
         />
 
-
-
         <AnnouncementModalComponentAppUpdate
           visible={app_update_status}
           app_update_title={app_update_title ? app_update_title : "Update info…"}
@@ -1186,11 +1184,24 @@ export default function MembersList() {
           />
 
           <View style={earnStyles.floatContainer} pointerEvents="box-none">
-            <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./PollsListScreen")} activeOpacity={0.82}>
-              <View style={earnStyles.shimmer} />
-              <Ionicons name="thumbs-down-sharp" size={18} color="#fff" style={{ marginRight: 7 }} />
-              <Text style={earnStyles.btnText}>Cast Your Vote</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View>
+                <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./PollsListScreen")} activeOpacity={0.82}>
+                  <View style={earnStyles.shimmer} />
+                  <Ionicons name="thumbs-down-sharp" size={18} color="#fff" style={{ marginRight: 7 }} />
+                  <Text style={earnStyles.btnText}>Vote</Text>
+                </TouchableOpacity>
+              </View>
+              {/* <View>
+                <TouchableOpacity style={earnStyles.btn} onPress={() => router.navigate("./PollsListScreen")} activeOpacity={0.82}>
+                  <View style={earnStyles.shimmer} />
+                  <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 7 }} />
+                  <Text style={earnStyles.btnText}>Create poll</Text>
+                </TouchableOpacity>
+              </View> */}
+            </View>
+
+
           </View>
 
           <BottomNav />

@@ -58,35 +58,6 @@ export default function BottomNav() {
         </Text>
       </TouchableOpacity> */}
 
-      {/* Activity */}
-      <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => router.navigate("./scoreboard_stable")}
-      >
-        <Ionicons
-          name="sync-outline"
-          size={24}
-        />
-        <Text style={[styles.navText]}>
-          Scoreboard
-        </Text>
-      </TouchableOpacity>
-
-
-      <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => commentHandle()}
-      >
-        <Ionicons
-          name="chatbox-outline"
-          size={24}
-        />
-        <Text style={[styles.navText]}>
-          Comment
-        </Text>
-      </TouchableOpacity>
-
-
       <TouchableOpacity
         style={[styles.navItem, {
           backgroundColor: "#fff", paddingHorizontal: 13
@@ -111,6 +82,36 @@ export default function BottomNav() {
 
         </View>
 
+      </TouchableOpacity>
+
+
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => commentHandle()}
+      >
+        <Ionicons
+          name="chatbox-outline"
+          size={24}
+        />
+        <Text style={[styles.navText]}>
+          Comment
+        </Text>
+      </TouchableOpacity>
+
+
+
+      {/* Activity */}
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => router.navigate("./PollsListScreen")}
+      >
+        <Ionicons
+          name="sync-outline"
+          size={24}
+        />
+        <Text style={[styles.navText]}>
+          View Polls
+        </Text>
       </TouchableOpacity>
 
       {/* Logout */}

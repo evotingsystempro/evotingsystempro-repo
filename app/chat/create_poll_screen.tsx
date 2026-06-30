@@ -16,12 +16,14 @@ import {
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ReusableScreen from "@/components/ReusableScreen";
 import { GlobalContext } from "@/context";
 import { db, storage } from "@/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, uploadString, getDownloadURL } from "firebase/storage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,47 @@ const toTimeInputValue = (d: Date) =>
   `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 const AVATAR_PALETTE = ["#1F9F4E", "#2563EB", "#D97706", "#7C3AED", "#DB2777", "#0D9488", "#DC2626", "#0891B2"];
+
+// Resolves a file extension + content type for a picked image asset.
+// Falls back to jpeg when the URI has no usable extension (common on
+// some Android content:// URIs and iOS ph:// asset URIs).
+const resolveImageMeta = (uri: string, mimeTypeFromPicker?: string) => {
+  const rawExt = uri.split(".").pop()?.split("?")[0]?.toLowerCase();
+  const knownExts = ["jpg", "jpeg", "png", "webp", "heic", "gif"];
+  const ext = rawExt && knownExts.includes(rawExt) ? rawExt : "jpg";
+  const contentType =
+    mimeTypeFromPicker || `image/${ext === "jpg" ? "jpeg" : ext}`;
+  return { ext, contentType };
+};
+
+// Logo images larger than this get downscaled before upload.
+const MAX_LOGO_BYTES = 500 * 1024; // 500kb
+const MAX_LOGO_DIMENSION = 100; // px, longest side
+
+// Given an original width/height, returns the proportional width/height
+// that fits within a MAX_LOGO_DIMENSION x MAX_LOGO_DIMENSION box without
+// distorting the aspect ratio.
+const getProportionalSize = (width: number, height: number) => {
+  if (!width || !height) {
+    return { width: MAX_LOGO_DIMENSION, height: MAX_LOGO_DIMENSION };
+  }
+  const scale = MAX_LOGO_DIMENSION / Math.max(width, height);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+// Races a promise against a timeout so a hung native upload (e.g. blocked
+// by Firebase Storage rules, or RN's Blob/XHR quirks) fails loudly instead
+// of leaving the UI stuck on "Uploading…" forever.
+const withTimeout = <T,>(promise: Promise<T>, ms = 20000): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Upload timed out")), ms)
+    ),
+  ]);
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -103,6 +146,19 @@ export default function CreatePollScreen() {
   };
 
   // ── Logo picker ─────────────────────────────────────────────────────────────
+  //
+  // NOTE on native uploads: React Native's `fetch(uri).then(r => r.blob())`
+  // returns a polyfilled Blob that Firebase's `uploadBytes` (XHR-based) can
+  // silently hang on — no resolve, no reject, just a stuck "Uploading…"
+  // state. To avoid this we only use the fetch→blob→uploadBytes path on web
+  // (where Blob is native and reliable). On iOS/Android we read the file as
+  // base64 via expo-file-system and upload with `uploadString`, which does
+  // not depend on RN's Blob/XHR body handling.
+  //
+  // NOTE on resizing: if the picked image is over 500kb, it's downscaled
+  // proportionally to fit within 100x100px (and re-encoded as JPEG at 0.8
+  // quality) before upload. This keeps poll logos small regardless of what
+  // the user picks from their library, on every platform.
 
   const pickLogo = async () => {
     if (Platform.OS !== "web") {
@@ -130,20 +186,66 @@ export default function CreatePollScreen() {
     setUploadingLogo(true);
 
     try {
-      // Convert URI → blob (works on native + web)
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
+      // Determine the original file size. asset.fileSize is populated on
+      // most platforms; fall back to a filesystem lookup when it isn't
+      // (some Android content:// URIs omit it).
+      let originalSize = asset.fileSize ?? 0;
+      if (!originalSize && Platform.OS !== "web") {
+        try {
+          const info = await FileSystem.getInfoAsync(asset.uri, { size: true });
+          originalSize = (info.exists && "size" in info && info.size) || 0;
+        } catch {
+          // If we can't determine size, fall through and skip resizing.
+        }
+      }
 
-      const ext = asset.uri.split(".").pop()?.split("?")[0] ?? "jpg";
+      let uploadUri = asset.uri;
+
+      // Resize proportionally to fit within 100x100 when the original is
+      // over 500kb. manipulateAsync also re-encodes/compresses as JPEG,
+      // which further shrinks the file beyond just the dimension change.
+      if (originalSize > MAX_LOGO_BYTES) {
+        const target = getProportionalSize(asset.width, asset.height);
+        const manipulated = await manipulateAsync(
+          asset.uri,
+          [{ resize: target }],
+          { compress: 0.8, format: SaveFormat.JPEG }
+        );
+        uploadUri = manipulated.uri;
+        setLogoUri(manipulated.uri); // preview the resized version too
+      }
+
+      const { ext, contentType } = resolveImageMeta(
+        uploadUri,
+        uploadUri !== asset.uri ? "image/jpeg" : asset.mimeType
+      );
       const storagePath = `poll_logos/${rawUserEmail}/${generatePollId()}.${ext}`;
       const storageRef = ref(storage, storagePath);
 
-      await uploadBytes(storageRef, blob);
+      if (Platform.OS === "web") {
+        const response = await fetch(uploadUri);
+        const blob = await response.blob();
+        await withTimeout(uploadBytes(storageRef, blob, { contentType }));
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(uploadUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await withTimeout(
+          uploadString(storageRef, base64, "base64", { contentType })
+        );
+      }
+
       const downloadUrl = await getDownloadURL(storageRef);
       setLogoUrl(downloadUrl);
     } catch (err) {
       console.error("Logo upload failed:", err);
-      Alert.alert("Upload failed", "Could not upload the image. Please try again.");
+      const timedOut = err instanceof Error && err.message === "Upload timed out";
+      Alert.alert(
+        "Upload failed",
+        timedOut
+          ? "Upload timed out. This can happen if Firebase Storage rules are blocking the write — please try again or contact support."
+          : "Could not upload the image. Please try again."
+      );
       setLogoUri(null);
       setLogoUrl("");
     } finally {
@@ -278,9 +380,10 @@ export default function CreatePollScreen() {
         pollType,
         isAnonymous,
         showResults,
-        logoUrl,                                         // "" if no logo chosen
+        logoUrl,
         deadline: deadline ? deadline.toISOString() : null,
         status: "active",
+        poll_verification_status: "not_verified",
         creatorEmail,
         creatorName: userName || "Unknown",
         aspirantCount: aspirants.length,
@@ -291,7 +394,6 @@ export default function CreatePollScreen() {
 
       // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
       //    votes always start at 0; use increment() for all future updates.
-      // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
       await Promise.all(
         aspirants.map((aspirant) => {
           const aspirantEmail = aspirant.email.trim().toLowerCase();
@@ -302,7 +404,7 @@ export default function CreatePollScreen() {
               email: aspirantEmail,
               photo: "",
               votes: 0,
-              lastVotedAt: null,          // ← ADDED: initialised to null
+              lastVotedAt: null,
               pollId,
               creatorEmail,
               addedAt: serverTimestamp(),
@@ -310,6 +412,29 @@ export default function CreatePollScreen() {
           );
         })
       );
+
+      // 6. Notify users that a new poll has been created.
+      //    Non-blocking: a notification failure should never undo or fail
+      //    the publish flow above, since the poll has already been saved.
+      try {
+        await fetch(
+          "https://email-service-570014654568.us-central1.run.app/push_notification",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title:
+                pollType === "multiple"
+                  ? "New Multi-Vote Poll Created"
+                  : "New Poll Created",
+              body: `Poll "${title.trim()}" created by ${userName || "Guest"}.`,
+              data: { screen: "chat/PollsListScreen" },
+            }),
+          }
+        );
+      } catch (err) {
+        console.log("Push notification error:", err);
+      }
 
       setPublishedTitle(title.trim());
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -552,12 +677,8 @@ export default function CreatePollScreen() {
 
                   <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>Email Address *</Text>
                   <TextInput
-                    style={[
-                      styles.input,
-                      asp.email.trim() && !isValidEmail(asp.email) && styles.inputError,
-                      isDup && styles.inputError,
-                    ]}
-                    placeholder="e.g. john@example.com"
+                    style={styles.input}
+                    placeholder="e.g. john.mensah@example.com"
                     placeholderTextColor="#b0b0b0"
                     value={asp.email}
                     onChangeText={(t) => updateAspirant(asp.id, "email", t)}
@@ -799,8 +920,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a", letterSpacing: -0.2 },
 
-  scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5, },
-  scrollContent: { paddingHorizontal: 4, paddingTop: 5, paddingBottom: 40 },
+  scroll: { flex: 1, backgroundColor: "#e9ede7ff", margin: 5, },
+  scrollContent: { paddingHorizontal: 4, paddingTop: 5, paddingBottom: 30 },
 
   // Section cards
   card: {
@@ -1103,6 +1224,8 @@ const styles = StyleSheet.create({
     color: "#000",
     textAlign: "center",
     marginTop: 12,
+    width: "60%",
+    alignSelf: "center",
     lineHeight: 16,
   },
 });

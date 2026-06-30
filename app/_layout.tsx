@@ -110,6 +110,7 @@ export default function RootLayout() {
                 <Stack.Screen name="chat/user_violation_screen" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/profile" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/create_poll_screen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/PollsListScreen" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/quiz" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/userChatMessages" options={{ headerShown: false }} />
                 <Stack.Screen name="PrivacyPolicy&TermsOfUse" options={{ headerShown: false }} />

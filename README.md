@@ -47,26 +47,28 @@
 
 ```
 CREATOR_DB
-  └── {creatorEmail}                          ← document ID = email
+  └── {creatorEmail}
         ├── name: string
         ├── email: string
         ├── status: "active" | "inactive"
         ├── createdAt: timestamp
-        ├── dateCreated: string               // e.g. "2026-06-28"
-        └── timeCreated: string               // e.g. "17:35"
+        ├── dateCreated: string    // e.g. "2026-06-28"
+        └── timeCreated: string    // e.g. "17:35"
 
 
 POLL_TITLE_DB
-  └── {creatorEmail}                          ← document ID = email
-        └── polls/                            ← subcollection
-              └── {pollId}                    ← document ID = pollId
+  └── {creatorEmail}
+        └── polls/
+              └── {pollId}
                     ├── pollId: string
                     ├── title: string
                     ├── pollType: "single" | "multiple"
                     ├── isAnonymous: boolean
+                    ├── logoUrl: ""
                     ├── showResults: boolean
                     ├── deadline: string | null   // ISO 8601
                     ├── status: "active" | "closed"
+                    ├── poll_verification_status: "verified" | "not_verified"
                     ├── aspirantCount: number
                     ├── creatorEmail: string
                     ├── creatorName: string
@@ -76,27 +78,25 @@ POLL_TITLE_DB
 
 
 ASPIRANTS_DETAILS_DB
-  └── {creatorEmail}                          ← document ID = email
-        └── {pollId}/                         ← subcollection
-              └── {aspirantEmail}             ← document ID = aspirant email
+  └── {creatorEmail}
+        └── {pollId}/
+              └── {aspirantEmail}
                     ├── name: string
                     ├── email: string
                     ├── photo: string | ""
-                    ├── votes: number         // always write via increment()
-                    ├── lastVotedAt: timestamp | null   // ← ADDED; updated on every vote toggle
+                    ├── votes: number
+                    ├── lastVotedAt: timestamp | null
                     ├── creatorEmail: string
                     └── addedAt: timestamp
 
 
 VOTERS_DB
-  └── {voterEmail}                            ← document ID = voter email
-        └── {pollId}/                         ← subcollection
-              └── receipt                     ← document ID = "receipt" (fixed string)
+  └── {voterEmail}
+        └── {pollId}/
+              └── receipt
                     ├── pollTitle: string
                     ├── creatorEmail: string
                     ├── aspirantVoted: string | string[]
-                    │     // single-vote → aspirantEmail string (or null if vote removed)
-                    │     // multiple-vote → string[]
                     └── votedAt: timestamp
 ```
 

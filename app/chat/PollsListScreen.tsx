@@ -37,6 +37,7 @@ interface PollSummary {
     createdAt: number;              // epoch ms — used for reliable sorting
     showResults: boolean;
     isAnonymous: boolean;
+    poll_verification_status: "verified" | "not_verified";
 }
 
 interface CreatorGroup {
@@ -101,6 +102,7 @@ export default function PollsListScreen() {
                     createdAt: d.createdAt?.toMillis?.() ?? 0,  // Firestore timestamp → ms
                     showResults: d.showResults ?? true,
                     isAnonymous: d.isAnonymous ?? false,
+                    poll_verification_status: d.poll_verification_status ?? "not_verified",
                 };
 
                 if (!byCreator.has(creatorEmail)) byCreator.set(creatorEmail, []);
@@ -120,7 +122,9 @@ export default function PollsListScreen() {
                 }
             );
 
-            groupList.sort((a, b) => a.creatorName.localeCompare(b.creatorName));
+            // Groups are ordered by their most recent poll — whichever creator
+            // just published rises to the top of the whole list.
+            groupList.sort((a, b) => b.polls[0].createdAt - a.polls[0].createdAt);
             setGroups(groupList);
             applyFilters(groupList, search, filter);
         } catch (err) {
@@ -343,9 +347,6 @@ export default function PollsListScreen() {
                                             <Text style={styles.creatorEmail} numberOfLines={1}>
                                                 {truncateMiddle(group.creatorEmail, 0, 17)}
                                             </Text>
-                                            <Text style={{ fontSize: 11, color: "#1F9F4E", padding: 12, borderRadius: 14, fontWeight: "500", paddingVertical: 3, backgroundColor: "#e0f7fa" }}>
-                                                Verified
-                                            </Text>
                                         </View>
                                     </View>
 
@@ -370,6 +371,7 @@ export default function PollsListScreen() {
                                         {group.polls.map((poll) => {
                                             const closed = isPollClosed(poll);
                                             const expired = isExpired(poll.deadline);
+                                            const verified = poll.poll_verification_status === "verified";
                                             return (
                                                 <TouchableOpacity
                                                     key={poll.pollId}
@@ -384,19 +386,35 @@ export default function PollsListScreen() {
 
                                                     <View style={styles.pollInfo}>
                                                         <View style={styles.pollTitleRow}>
-                                                            <Text style={styles.pollTitle} numberOfLines={2}>
+                                                            <Text style={[styles.pollTitle, { flex: 1, }]} ellipsizeMode="tail" numberOfLines={2}>
                                                                 {poll.title}
                                                             </Text>
-                                                            <View style={[
-                                                                styles.statusBadge,
-                                                                closed ? styles.badgeClosed : styles.badgeActive,
-                                                            ]}>
-                                                                <Text style={[
-                                                                    styles.badgeText,
-                                                                    closed ? styles.badgeTextClosed : styles.badgeTextActive,
+                                                            <View style={styles.badgeGroup}>
+                                                                {verified ? (
+                                                                    <View style={styles.verifiedBadge}>
+                                                                        <Ionicons name="checkmark-circle" size={13} color="#1F9F4E" />
+                                                                        <Text style={styles.verifiedBadgeText}>Verified</Text>
+                                                                    </View>
+                                                                ) :
+                                                                    (
+                                                                        <View style={styles.unverifiedBadge}>
+                                                                            <Ionicons name="close-circle" size={13} color="#fd7d7dff" />
+                                                                            <Text style={styles.unverifiedBadgeText}>Unverified</Text>
+                                                                        </View>
+                                                                    )
+
+                                                                }
+                                                                <View style={[
+                                                                    styles.statusBadge,
+                                                                    closed ? styles.badgeClosed : styles.badgeActive,
                                                                 ]}>
-                                                                    {closed ? (expired ? "Expired" : "Closed") : "Live"}
-                                                                </Text>
+                                                                    <Text style={[
+                                                                        styles.badgeText,
+                                                                        closed ? styles.badgeTextClosed : styles.badgeTextActive,
+                                                                    ]}>
+                                                                        {closed ? (expired ? "Expired" : "Closed") : "Live"}
+                                                                    </Text>
+                                                                </View>
                                                             </View>
                                                         </View>
 
@@ -505,8 +523,8 @@ const styles = StyleSheet.create({
     liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#1F9F4E" },
     liveBadgeText: { fontSize: 11, fontWeight: "700", color: "#1F9F4E" },
 
-    scroll: { flex: 1, backgroundColor: "#e2e1e1ff", margin: 5 },
-    scrollContent: { paddingHorizontal: 2, paddingTop: 3, paddingBottom: 40, gap: 8 },
+    scroll: { flex: 1, backgroundColor: "#e9ede7ff", margin: 5 },
+    scrollContent: { paddingHorizontal: 2, paddingTop: 3, paddingBottom: 30, gap: 8 },
     scrollEmpty: { flex: 1 },
 
     emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60, gap: 12 },
@@ -556,6 +574,21 @@ const styles = StyleSheet.create({
     pollInfo: { flex: 1, padding: 12, gap: 7 },
     pollTitleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
     pollTitle: { flex: 1, fontSize: 13, fontWeight: "600", color: "#545454ff", lineHeight: 19 },
+
+    badgeGroup: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
+    verifiedBadge: {
+        flexDirection: "row", alignItems: "center", gap: 3,
+        paddingHorizontal: 7, paddingVertical: 3, borderRadius: 14,
+        backgroundColor: "#e0f7fa",
+    },
+    verifiedBadgeText: { fontSize: 11, color: "#1F9F4E", fontWeight: "500" },
+
+    unverifiedBadge: {
+        flexDirection: "row", alignItems: "center", gap: 3,
+        paddingHorizontal: 7, paddingVertical: 3, borderRadius: 14,
+        backgroundColor: "#eee",
+    },
+    unverifiedBadgeText: { fontSize: 11, color: "#999", fontWeight: "500" },
 
     pollMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
     metaChip: { flexDirection: "row", alignItems: "center", gap: 3 },
