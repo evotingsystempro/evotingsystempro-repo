@@ -18,6 +18,10 @@ import { db } from "@/firebase";
 import {
     doc, getDoc, setDoc, updateDoc,
     collection, onSnapshot, increment, serverTimestamp,
+    query,
+    where,
+    limit,
+    getDocs,
 } from "firebase/firestore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -88,7 +92,7 @@ const countFor = (emails: string[], email: string) =>
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PollLeaderboardScreen() {
-    const { rawUserEmail } = useContext(GlobalContext);
+    const { rawUserEmail, userid } = useContext(GlobalContext);
 
     const params = useLocalSearchParams<{ pollId: string; creatorEmail: string }>();
     const pollId = Array.isArray(params.pollId) ? params.pollId[0] : params.pollId;
@@ -201,11 +205,101 @@ export default function PollLeaderboardScreen() {
         }
     }, [rawUserEmail, pollId, syncVotedEmails]);
 
-    useEffect(() => { loadMyVotes(); }, [loadMyVotes]);
+    useEffect(() => {
+        loadMyVotes();
+    }, [loadMyVotes]);
+
+
+
+
+    // ------- VOTER VALIDATION ------
+
+    const sanitizeDocId = (raw: string) => {
+        const cleaned = raw.trim().replace(/\//g, "-").replace(/\s+/g, " ");
+        return cleaned.length ? cleaned : "";
+    };
+
+    const isValidEmail = (value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+    const checkVoterValidated = async (
+        creatorEmail: string,
+        pollId: string,
+        idOrEmail: string
+    ): Promise<boolean> => {
+        const trimmed = idOrEmail.trim();
+        if (!creatorEmail || !pollId || !trimmed) return false;
+
+        const votersCollection = collection(
+            db,
+            "VALIDATED_VOTERS_DB",
+            creatorEmail,
+            pollId
+        );
+
+        // 1. Try as a doc ID (voter code / index no.) — documents are keyed by
+        //    sanitizeDocId(code), same as when the poll creator uploaded/entered
+        //    the list.
+        const codeId = sanitizeDocId(trimmed);
+        if (codeId) {
+            const codeSnap = await getDoc(doc(votersCollection, codeId));
+            if (codeSnap.exists()) return true;
+        }
+
+        // 2. Fall back to matching on the "email" field (case-insensitive, since
+        //    emails are stored lowercased on write).
+        if (isValidEmail(trimmed)) {
+            const emailQuery = query(
+                votersCollection,
+                where("email", "==", trimmed.toLowerCase()),
+                limit(1)
+            );
+            const emailSnap = await getDocs(emailQuery);
+            if (!emailSnap.empty) return true;
+        }
+
+        return false;
+    };
+
+    // const pollId = "POLL_1782998497301_A8AIA";
+    //   const creatorEmail = "litmusberk@gmail.com";
+
+    const [idOrEmail, setIdOrEmail] = useState(userid || rawUserEmail);
+    const [wait_checking_voter_validation, setWait_checking_voter_validation]: any = useState("");
+
+    const validateVoter = async (aspirantEmail: string, index: number) => {
+
+        setLockedIndices(new Set());
+        setWait_checking_voter_validation("Loading...");
+        setLockedIndices(prev => new Set(prev).add(index));
+
+
+        if (!pollId || !creatorEmail) {
+            console.log("Missing pollId or creatorEmail — cannot validate voter.");
+
+            return;
+        }
+
+        if (!idOrEmail.trim()) return;
+        try {
+            const isVoterValidated = await checkVoterValidated(
+                String(creatorEmail),
+                String(pollId),
+                idOrEmail
+            );
+
+            handleToggleVote(aspirantEmail, index, isVoterValidated);
+
+        } catch (err) {
+            console.error("Voter validation check failed:", err);
+        } finally {
+            // setVoterValidation(false);
+        }
+    };
 
     // ── Toggle vote — SINGLE-VOTE POLLS ONLY (unchanged) ──────────────────────
 
-    const handleToggleVote = async (aspirantEmail: string, index: number) => {
+    const handleToggleVote = async (aspirantEmail: string, index: number, isVoterValidated: boolean) => {
         if (!poll || !rawUserEmail || !pollId || !creatorEmail) {
             Alert.alert("Not ready", "Please wait a moment and try again.");
             return;
@@ -217,16 +311,16 @@ export default function PollLeaderboardScreen() {
             Alert.alert("Poll closed", "This poll is no longer accepting votes.");
             return;
         }
-
+        console.log("CHECK__(((())))::::", isVoterValidated);
         // 30-second lock for single-vote polls
-        if (poll.pollType === "single" && votedAt) {
+        if (poll.requires_voters_validation === true && !isVoterValidated) {
             setLockedIndices(new Set());
-            const secondsSinceVote = (Date.now() - votedAt.getTime()) / 1000;
-            if (secondsSinceVote > 30) {
-                setLockedIndices(prev => new Set(prev).add(index));
-                return;
-            }
+            setWait_checking_voter_validation("Your're not validated");
+            setLockedIndices(prev => new Set(prev).add(index));
+            return;
         }
+
+        setWait_checking_voter_validation("Vote successful");
 
         const current = votedEmailsRef.current;
         const hasVotedThis = current.includes(aspirantEmail);
@@ -383,6 +477,7 @@ export default function PollLeaderboardScreen() {
     // ── Loading ───────────────────────────────────────────────
 
     if (loading) {
+
         return (
             <ReusableScreen>
                 <View style={styles.header}>
@@ -592,7 +687,7 @@ export default function PollLeaderboardScreen() {
                                             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
                                                 <View>
                                                     {isVoted && (
-                                                        <Text style={styles.alreadyVotedText}>Already voted</Text>
+                                                        <Text style={[styles.alreadyVotedText, { color: wait_checking_voter_validation === "Vote successful" ? "#1F9F4E" : "#ef4444" }]}>{wait_checking_voter_validation}</Text>
                                                     )}
                                                 </View>
 
@@ -607,7 +702,7 @@ export default function PollLeaderboardScreen() {
                                                             />
                                                         ) : (
                                                             <TouchableOpacity
-                                                                onPress={() => handleToggleVote(asp.email, index)}
+                                                                onPress={() => validateVoter(asp.email, index)}
                                                                 disabled={!canVote || !!togglingEmailRef.current}
                                                                 activeOpacity={0.7}
                                                                 style={styles.thumbBtn}
