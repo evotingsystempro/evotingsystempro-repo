@@ -69,7 +69,7 @@ const PAYMENT_METHODS = [
     {
         key: "momo",
         label: "MoMo",
-        dest: "0502309630",
+        dest: "0502309630 / 0543171076",
         icon: "phone-portrait-outline",
     },
     {
@@ -792,10 +792,11 @@ export default function ProfileScreen() {
         setDepositStatus("submitting");
         try {
             const depositAmt = Number(depositAmount);
+            const txId = uuId(userId);
 
             await addDoc(collection(db, TRANSACTION_WALLET_DB), {
                 email: userId,
-                transaction_id: uuId(userId),
+                transaction_id: txId,
                 external_transaction_id: depositTxId.trim(),
                 transaction_type: "deposit",
                 previous_balance: walletBalance,
@@ -814,6 +815,27 @@ export default function ProfileScreen() {
             setDepositMethod(null);
             await fetchWalletBalance(false);
             await resetPagination();
+
+            // Notify admin — don't let a notification failure affect deposit success
+            try {
+                await fetch(
+                    "https://email-service-570014654568.us-central1.run.app/push_notification",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            title: "New Deposit Pending Approval",
+                            body: `Request to deposit ${depositAmt} GHS via ${depositMethod}`,
+                            data: {
+                                screen: "chat/profile",
+                                transactionId: txId,
+                            },
+                        }),
+                    }
+                );
+            } catch (notifyErr) {
+                console.log("Admin notification error:", notifyErr);
+            }
         } catch (err) {
             console.error("Deposit error:", err);
             setDepositStatus("failed");
@@ -1158,7 +1180,7 @@ export default function ProfileScreen() {
                             <View style={styles.profileLeft}>
                                 <View>
                                     <Image
-                                        source={require("@/assets/images/userImagePlaceHolder.jpeg")}
+                                        source={require("@/assets/images/userImagePlaceHolder.png")}
                                         style={{ width: "70%", height: "70%", position: "absolute" }}
                                         resizeMode="cover"
                                     />

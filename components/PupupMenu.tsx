@@ -2,12 +2,10 @@ import React, { useContext } from "react";
 import { View, Text, Alert, Platform, Share } from "react-native";
 import { Menu, MenuOptions, MenuOption, MenuTrigger } from "react-native-popup-menu";
 import { Ionicons, AntDesign, MaterialIcons } from "@expo/vector-icons";
-import { useAuth } from "@/context/auth";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { GlobalContext } from "@/context";
 import { useLogout } from "@/hooks/useLogout";
-import { useRefresh } from "@/hooks/useRefresh";
 
 
 export default function PopupMenu() {
@@ -18,7 +16,7 @@ export default function PopupMenu() {
     userId, app_update_version
   } = useContext(GlobalContext);
   const shareMessage =
-    "You can earn $10–$200 every 30 days while learning. Discover how here: https://smartlearnersapp.expo.app";
+    "The best e-voting system for smart people. Discover how here: https://evotingsystempro.expo.app";
 
   const PupupMenuBuyResetCreditFun = (email: string) => {
     if (!email) { alert("Unable to open purchase screen. Email not found."); return; }
@@ -31,9 +29,9 @@ export default function PopupMenu() {
       if (Platform.OS === "web") {
         if (navigator.share) {
           await navigator.share({
-            title: "SmartLearnersApp",
+            title: "Evoting System Pro",
             text: shareMessage,
-            url: "https://smartlearnersapp.expo.app",
+            url: "https://evotingsystempro.expo.app",
           });
         } else {
           await navigator.clipboard.writeText(shareMessage);
@@ -64,7 +62,7 @@ export default function PopupMenu() {
   return (
     <Menu>
       <MenuTrigger>
-        <Ionicons style={{ marginRight: 5, }} name="ellipsis-vertical" size={25} color="#f59c02" />
+        <Ionicons style={{ marginRight: 5, }} name="ellipsis-vertical" size={25} color="#27af15ff" />
       </MenuTrigger>
 
       <MenuOptions
@@ -85,12 +83,7 @@ export default function PopupMenu() {
       >
         <MenuOption onSelect={() => router.navigate("./profile")} style={menuStyle.option}>
           <Ionicons name="person-circle-outline" size={20} color="#333" style={menuStyle.icon} />
-          <Text style={menuStyle.text}>Profile</Text>
-        </MenuOption>
-
-        <MenuOption onSelect={() => router.navigate("./pickTopic")} style={menuStyle.option}>
-          <AntDesign name="clockcircleo" size={20} color="#333" style={menuStyle.icon} />
-          <Text style={menuStyle.text}>Earn / Task</Text>
+          <Text style={menuStyle.text}>Wallet</Text>
         </MenuOption>
 
         <MenuOption onSelect={handleShare} style={menuStyle.option}>
@@ -103,15 +96,14 @@ export default function PopupMenu() {
           <Text style={menuStyle.text}>Tell a Friend (Copy)</Text>
         </MenuOption>
 
-        <MenuOption onSelect={() => router.navigate("./scoreboard_stable")} style={menuStyle.option}>
-          <Ionicons name="trophy-outline" size={20} color="#333" style={menuStyle.icon} />
-          <Text style={menuStyle.text}>Scoreboard</Text>
-        </MenuOption>
-
-
         <MenuOption onSelect={() => router.navigate("./UserTransactionScreen")} style={menuStyle.option}>
           <Ionicons name="trail-sign" size={20} color="#333" style={menuStyle.icon} />
           <Text style={menuStyle.text}>Transactions</Text>
+        </MenuOption>
+
+        <MenuOption onSelect={() => router.navigate("./PollsListScreen")} style={menuStyle.option}>
+          <Ionicons name="trophy-outline" size={20} color="#333" style={menuStyle.icon} />
+          <Text style={menuStyle.text}>Polls</Text>
         </MenuOption>
 
         {userId === "stanleyafon@gmail.com" ? (<MenuOption onSelect={() => router.navigate("./admin_reset_credit_transaction_screen")} style={[menuStyle.option,]}>
@@ -119,15 +111,10 @@ export default function PopupMenu() {
           <Text style={[menuStyle.text, { color: "#0272a9ff", fontWeight: "bold" }]}>Admin</Text>
         </MenuOption>) : null}
 
-        <MenuOption onSelect={() => PupupMenuBuyResetCreditFun(userId)} style={[menuStyle.option,]}>
-          <MaterialIcons name="add-shopping-cart" size={20} color="#1f9404ff" style={menuStyle.icon} />
-          <Text style={[menuStyle.text, { color: "#1f9404ff", fontWeight: "bold" }]}>Buy Reset Credit</Text>
-        </MenuOption>
-
         <MenuOption style={menuStyle.option}>
           <Ionicons name="logo-vercel" size={20} color="#333" style={menuStyle.icon} />
           {/*  <Text style={menuStyle.text}>Version: {app_update_version}</Text> */}
-          <Text style={menuStyle.text}>Version: 2.6.0</Text>
+          <Text style={menuStyle.text}>Version: 1.0.0</Text>
         </MenuOption>
 
         <View style={menuStyle.divider} />

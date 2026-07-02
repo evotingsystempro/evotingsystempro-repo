@@ -69,7 +69,7 @@ export default function ChatBanner() {
                                 resizeMode="cover"
                             />
                             <Image
-                                source={require("@/assets/images/userImagePlaceHolder.jpeg")}
+                                source={require("@/assets/images/userImagePlaceHolder.png")}
                                 style={styles.avatarImg}
                                 resizeMode="cover"
                             />

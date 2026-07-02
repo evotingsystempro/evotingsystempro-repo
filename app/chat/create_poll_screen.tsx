@@ -17,6 +17,8 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+import * as DocumentPicker from "expo-document-picker";
+import * as XLSX from "xlsx";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ReusableScreen from "@/components/ReusableScreen";
@@ -28,10 +30,24 @@ import { ref, uploadBytes, uploadString, getDownloadURL } from "firebase/storage
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PollType = "single" | "multiple";
+type VoterValidationMode = "manual" | "file";
 
 interface Aspirant {
   id: string;
   name: string;
+  email: string;
+}
+
+interface ManualVoterEntry {
+  id: string;
+  name: string;
+  code: string;
+  email: string;
+}
+
+interface ParsedVoter {
+  name: string;
+  code: string;
   email: string;
 }
 
@@ -55,8 +71,6 @@ const toTimeInputValue = (d: Date) =>
 const AVATAR_PALETTE = ["#1F9F4E", "#2563EB", "#D97706", "#7C3AED", "#DB2777", "#0D9488", "#DC2626", "#0891B2"];
 
 // Resolves a file extension + content type for a picked image asset.
-// Falls back to jpeg when the URI has no usable extension (common on
-// some Android content:// URIs and iOS ph:// asset URIs).
 const resolveImageMeta = (uri: string, mimeTypeFromPicker?: string) => {
   const rawExt = uri.split(".").pop()?.split("?")[0]?.toLowerCase();
   const knownExts = ["jpg", "jpeg", "png", "webp", "heic", "gif"];
@@ -66,13 +80,9 @@ const resolveImageMeta = (uri: string, mimeTypeFromPicker?: string) => {
   return { ext, contentType };
 };
 
-// Logo images larger than this get downscaled before upload.
 const MAX_LOGO_BYTES = 500 * 1024; // 500kb
 const MAX_LOGO_DIMENSION = 100; // px, longest side
 
-// Given an original width/height, returns the proportional width/height
-// that fits within a MAX_LOGO_DIMENSION x MAX_LOGO_DIMENSION box without
-// distorting the aspect ratio.
 const getProportionalSize = (width: number, height: number) => {
   if (!width || !height) {
     return { width: MAX_LOGO_DIMENSION, height: MAX_LOGO_DIMENSION };
@@ -84,9 +94,6 @@ const getProportionalSize = (width: number, height: number) => {
   };
 };
 
-// Races a promise against a timeout so a hung native upload (e.g. blocked
-// by Firebase Storage rules, or RN's Blob/XHR quirks) fails loudly instead
-// of leaving the UI stuck on "Uploading…" forever.
 const withTimeout = <T,>(promise: Promise<T>, ms = 20000): Promise<T> =>
   Promise.race([
     promise,
@@ -94,6 +101,69 @@ const withTimeout = <T,>(promise: Promise<T>, ms = 20000): Promise<T> =>
       setTimeout(() => reject(new Error("Upload timed out")), ms)
     ),
   ]);
+
+// Turns a free-form voter code into a safe Firestore document ID.
+const sanitizeDocId = (raw: string) => {
+  const cleaned = raw.trim().replace(/\//g, "-").replace(/\s+/g, " ");
+  return cleaned.length ? cleaned : `VOTER_${Date.now()}`;
+};
+
+// Parses comma/tab-delimited text (.csv / .txt) into {name, code, email} rows.
+const parseDelimitedVoters = (text: string): ParsedVoter[] => {
+  const lines = text
+    .split(/\r\n|\r|\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  const rows = lines.map((line) => line.split(/\t|,/).map((c) => c.trim()));
+
+  const dataRows =
+    rows.length && rows[0][0] && /name/i.test(rows[0][0]) ? rows.slice(1) : rows;
+
+  return dataRows
+    .map((r) => ({ name: r[0] || "", code: r[1] || "", email: r[2] || "" }))
+    .filter((v) => v.name && v.code && v.email && isValidEmail(v.email));
+};
+
+// Parses an Excel workbook (base64-encoded .xlsx / .xls) into {name, code, email} rows.
+const parseExcelVoters = (base64: string): ParsedVoter[] => {
+  const workbook = XLSX.read(base64, { type: "base64" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    blankrows: false,
+  });
+
+  const dataRows =
+    rows.length && rows[0][0] && /name/i.test(String(rows[0][0]))
+      ? rows.slice(1)
+      : rows;
+
+  return dataRows
+    .map((r) => ({
+      name: String(r[0] ?? "").trim(),
+      code: String(r[1] ?? "").trim(),
+      email: String(r[2] ?? "").trim(),
+    }))
+    .filter((v) => v.name && v.code && v.email && isValidEmail(v.email));
+};
+
+// Reads a web blob: URI as base64 (expo-file-system doesn't support
+// reading blob: URIs on web, so we go through FileReader instead).
+const fetchUriAsBase64 = async (uri: string): Promise<string> => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = (reader.result as string) || "";
+      resolve(result.split(",")[1] || "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -110,11 +180,30 @@ export default function CreatePollScreen() {
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showResults, setShowResults] = useState(true);
+
+  // ── Voter validation ────────────────────────────────────────────────────────
+  // requiresVoterValidation === "requires_voters_validation" on the saved poll.
+  // When true, only voters whose code exists under
+  // VALIDATED_VOTERS_DB/{creatorEmail}/{pollId}/{code} may vote.
+  const [requiresVoterValidation, setRequiresVoterValidation] = useState(false);
+  const [voterValidationMode, setVoterValidationMode] = useState<VoterValidationMode>("manual");
+
+  // Option 2: manual entry — dynamic name+code+email rows with a "+" to add more.
+  const [manualVoters, setManualVoters] = useState<ManualVoterEntry[]>([
+    { id: "1", name: "", code: "", email: "" },
+  ]);
+
+  // Option 1: file upload — CSV / Excel / Text, parsed cross-platform.
+  const [uploadedVoters, setUploadedVoters] = useState<ParsedVoter[]>([]);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [parsingFile, setParsingFile] = useState(false);
+  const [fileParseError, setFileParseError] = useState<string | null>(null);
+
   const [publishing, setPublishing] = useState(false);
 
   // Logo
-  const [logoUri, setLogoUri] = useState<string | null>(null);       // local preview URI
-  const [logoUrl, setLogoUrl] = useState<string>("");                 // uploaded download URL
+  const [logoUri, setLogoUri] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Inline deadline picker
@@ -145,20 +234,127 @@ export default function CreatePollScreen() {
     );
   };
 
+  // ── Voter validation helpers ────────────────────────────────────────────────
+
+  const addManualVoter = () => {
+    if (manualVoters.length >= 500) return;
+    setManualVoters((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", code: "", email: "" },
+    ]);
+  };
+
+  const removeManualVoter = (id: string) => {
+    if (manualVoters.length <= 1) return;
+    setManualVoters((prev) => prev.filter((v) => v.id !== id));
+  };
+
+  const updateManualVoter = (
+    id: string,
+    field: "name" | "code" | "email",
+    value: string
+  ) => {
+    setManualVoters((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, [field]: value } : v))
+    );
+  };
+
+  const clearUploadedFile = () => {
+    setUploadedFileName(null);
+    setUploadedVoters([]);
+    setFileParseError(null);
+  };
+
+  // Cross-platform picker: works the same way on iOS, Android, and web.
+  //
+  // NOTE: strict MIME-type arrays (e.g. "text/csv") are unreliable across
+  // Android OEMs — many file providers tag .csv/.xlsx files as
+  // "application/octet-stream" or leave the type blank, which makes the
+  // native picker silently show zero matching files (looks like "nothing
+  // happens" when tapped). We ask for "*/*" instead and validate by file
+  // extension after the fact, which works consistently on iOS, Android,
+  // and web.
+  //
+  // The whole function is wrapped in try/catch: previously only the
+  // parsing step was guarded, so if getDocumentAsync itself threw (e.g.
+  // permission denial, or the native module not being linked yet after
+  // installing expo-document-picker), the promise rejected with no visible
+  // feedback at all — exactly the silent-failure symptom.
+  const ALLOWED_VOTER_FILE_EXTS = ["csv", "txt", "xlsx", "xls"];
+
+  const pickVoterFile = async () => {
+    setFileParseError(null);
+
+    let result: DocumentPicker.DocumentPickerResult;
+    try {
+      result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+    } catch (err) {
+      console.error("Voter file picker failed to open:", err);
+      setFileParseError(
+        "Could not open the file picker. Please check app permissions and try again."
+      );
+      return;
+    }
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    const fileName = asset.name || "voters file";
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+
+    if (!ALLOWED_VOTER_FILE_EXTS.includes(ext)) {
+      setFileParseError(
+        `"${fileName}" isn't a supported format. Please upload a .csv, .txt, .xlsx, or .xls file.`
+      );
+      return;
+    }
+
+    setParsingFile(true);
+    setUploadedFileName(fileName);
+    setUploadedVoters([]);
+
+    try {
+      let parsed: ParsedVoter[] = [];
+
+      if (ext === "xlsx" || ext === "xls") {
+        const base64 =
+          Platform.OS === "web"
+            ? await fetchUriAsBase64(asset.uri)
+            : await FileSystem.readAsStringAsync(asset.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+        parsed = parseExcelVoters(base64);
+      } else {
+        // CSV or plain text
+        const text =
+          Platform.OS === "web"
+            ? await (await fetch(asset.uri)).text()
+            : await FileSystem.readAsStringAsync(asset.uri, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
+        parsed = parseDelimitedVoters(text);
+      }
+
+      if (parsed.length === 0) {
+        setFileParseError(
+          "No valid rows found. Each row needs a name, a code/index number, and a valid email — separated by commas."
+        );
+      } else {
+        setUploadedVoters(parsed);
+      }
+    } catch (err) {
+      console.error("Voter file parse failed:", err);
+      setFileParseError("Could not read this file. Please check the format and try again.");
+    } finally {
+      setParsingFile(false);
+    }
+  };
+
   // ── Logo picker ─────────────────────────────────────────────────────────────
-  //
-  // NOTE on native uploads: React Native's `fetch(uri).then(r => r.blob())`
-  // returns a polyfilled Blob that Firebase's `uploadBytes` (XHR-based) can
-  // silently hang on — no resolve, no reject, just a stuck "Uploading…"
-  // state. To avoid this we only use the fetch→blob→uploadBytes path on web
-  // (where Blob is native and reliable). On iOS/Android we read the file as
-  // base64 via expo-file-system and upload with `uploadString`, which does
-  // not depend on RN's Blob/XHR body handling.
-  //
-  // NOTE on resizing: if the picked image is over 500kb, it's downscaled
-  // proportionally to fit within 100x100px (and re-encoded as JPEG at 0.8
-  // quality) before upload. This keeps poll logos small regardless of what
-  // the user picks from their library, on every platform.
 
   const pickLogo = async () => {
     if (Platform.OS !== "web") {
@@ -186,9 +382,6 @@ export default function CreatePollScreen() {
     setUploadingLogo(true);
 
     try {
-      // Determine the original file size. asset.fileSize is populated on
-      // most platforms; fall back to a filesystem lookup when it isn't
-      // (some Android content:// URIs omit it).
       let originalSize = asset.fileSize ?? 0;
       if (!originalSize && Platform.OS !== "web") {
         try {
@@ -201,9 +394,6 @@ export default function CreatePollScreen() {
 
       let uploadUri = asset.uri;
 
-      // Resize proportionally to fit within 100x100 when the original is
-      // over 500kb. manipulateAsync also re-encodes/compresses as JPEG,
-      // which further shrinks the file beyond just the dimension change.
       if (originalSize > MAX_LOGO_BYTES) {
         const target = getProportionalSize(asset.width, asset.height);
         const manipulated = await manipulateAsync(
@@ -212,7 +402,7 @@ export default function CreatePollScreen() {
           { compress: 0.8, format: SaveFormat.JPEG }
         );
         uploadUri = manipulated.uri;
-        setLogoUri(manipulated.uri); // preview the resized version too
+        setLogoUri(manipulated.uri);
       }
 
       const { ext, contentType } = resolveImageMeta(
@@ -322,11 +512,44 @@ export default function CreatePollScreen() {
     .map((a) => a.email.trim().toLowerCase())
     .filter((e, i, arr) => e && arr.indexOf(e) !== i);
 
+  const validatedVotersList: ParsedVoter[] = !requiresVoterValidation
+    ? []
+    : voterValidationMode === "file"
+      ? uploadedVoters
+      : manualVoters
+        .map((v) => ({
+          name: v.name.trim(),
+          code: v.code.trim(),
+          email: v.email.trim(),
+        }))
+        .filter((v) => v.name && v.code && v.email);
+
+  const voterCodeDuplicates = validatedVotersList
+    .map((v) => v.code.trim().toLowerCase())
+    .filter((c, i, arr) => c && arr.indexOf(c) !== i);
+
+  const voterEmailDuplicates = validatedVotersList
+    .map((v) => v.email.trim().toLowerCase())
+    .filter((e, i, arr) => e && arr.indexOf(e) !== i);
+
+  const voterEmailsInvalid = validatedVotersList.some(
+    (v) => v.email && !isValidEmail(v.email)
+  );
+
+  const voterValidationValid =
+    !requiresVoterValidation ||
+    (!parsingFile &&
+      validatedVotersList.length > 0 &&
+      voterCodeDuplicates.length === 0 &&
+      voterEmailDuplicates.length === 0 &&
+      !voterEmailsInvalid);
+
   const isFormValid =
     title.trim().length > 0 &&
     !uploadingLogo &&
     aspirants.every((a) => a.name.trim().length > 0 && isValidEmail(a.email)) &&
-    duplicateEmails.length === 0;
+    duplicateEmails.length === 0 &&
+    voterValidationValid;
 
   // ── Derived progress (UI only) ──────────────────────────────────────────────
 
@@ -340,6 +563,7 @@ export default function CreatePollScreen() {
   //   CREATOR_DB/{creatorEmail}
   //   POLL_TITLE_DB/{creatorEmail}/polls/{pollId}
   //   ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
+  //   VALIDATED_VOTERS_DB/{creatorEmail}/{pollId}/{code}   (only if requires_voters_validation)
 
   const handlePublish = async () => {
     if (!isFormValid || !rawUserEmail) return;
@@ -378,6 +602,7 @@ export default function CreatePollScreen() {
         pollId,
         title: title.trim(),
         pollType,
+        requires_voters_validation: requiresVoterValidation,
         isAnonymous,
         showResults,
         logoUrl,
@@ -393,7 +618,6 @@ export default function CreatePollScreen() {
       });
 
       // 5. Save aspirants → ASPIRANTS_DETAILS_DB/{creatorEmail}/{pollId}/{aspirantEmail}
-      //    votes always start at 0; use increment() for all future updates.
       await Promise.all(
         aspirants.map((aspirant) => {
           const aspirantEmail = aspirant.email.trim().toLowerCase();
@@ -413,9 +637,29 @@ export default function CreatePollScreen() {
         })
       );
 
-      // 6. Notify users that a new poll has been created.
-      //    Non-blocking: a notification failure should never undo or fail
-      //    the publish flow above, since the poll has already been saved.
+      // 6. Save validated voters → VALIDATED_VOTERS_DB/{creatorEmail}/{pollId}/{code}
+      //    Only when this poll restricts voting to a pre-approved list.
+      if (requiresVoterValidation && validatedVotersList.length > 0) {
+        await Promise.all(
+          validatedVotersList.map((voter) => {
+            const codeId = sanitizeDocId(voter.code);
+            return setDoc(
+              doc(db, "VALIDATED_VOTERS_DB", creatorEmail, pollId, codeId),
+              {
+                name: voter.name.trim(),
+                code: voter.code.trim(),
+                email: voter.email.trim().toLowerCase(),
+                hasVoted: false,
+                pollId,
+                creatorEmail,
+                addedAt: serverTimestamp(),
+              }
+            );
+          })
+        );
+      }
+
+      // 7. Notify users that a new poll has been created.
       try {
         await fetch(
           "https://email-service-570014654568.us-central1.run.app/push_notification",
@@ -497,7 +741,6 @@ export default function CreatePollScreen() {
                 </View>
               </View>
 
-              {/* Two-in-one segmented button */}
               <View style={styles.segmentedBtn}>
                 <TouchableOpacity
                   style={styles.segmentLeft}
@@ -543,7 +786,6 @@ export default function CreatePollScreen() {
               Logo <Text style={styles.optional}>(Optional)</Text>
             </Text>
 
-            {/* Logo preview */}
             {logoUri ? (
               <View style={styles.logoPreviewWrap}>
                 <Image source={{ uri: logoUri }} style={styles.logoPreview} resizeMode="cover" />
@@ -716,6 +958,27 @@ export default function CreatePollScreen() {
               <Text style={styles.sectionLabel}>Settings</Text>
             </View>
 
+            {/* requires_voters_validation toggle */}
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleIconWrap}>
+                <Ionicons name="shield-checkmark-outline" size={15} color="#6b7280" />
+              </View>
+              <View style={styles.toggleText}>
+                <Text style={styles.toggleLabel}>Require voter validation</Text>
+                <Text style={styles.toggleDesc}>
+                  Only voters you pre-approve below can vote in this poll.
+                </Text>
+              </View>
+              <Switch
+                value={requiresVoterValidation}
+                onValueChange={setRequiresVoterValidation}
+                trackColor={{ false: "#e5e7eb", true: "#A2E0B8" }}
+                thumbColor={requiresVoterValidation ? "#1F9F4E" : "#9ca3af"}
+              />
+            </View>
+
+            <View style={styles.dividerThin} />
+
             <Text style={styles.fieldLabel}>
               Voting deadline <Text style={styles.optional}>(Optional)</Text>
             </Text>
@@ -739,7 +1002,6 @@ export default function CreatePollScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Inline deadline picker */}
             {showDeadlinePicker && (
               <View style={styles.inlinePickerBox}>
                 <Text style={styles.inlinePickerPreview}>
@@ -847,6 +1109,227 @@ export default function CreatePollScreen() {
             </View>
           </View>
 
+          {/* ── Validated voters card (shown only when the toggle above is ON) ── */}
+          {requiresVoterValidation && (
+            <View style={styles.card}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={[styles.sectionIconWrap, { backgroundColor: "#EAF6EE" }]}>
+                  <Ionicons name="shield-checkmark-outline" size={15} color="#1F9F4E" />
+                </View>
+                <Text style={styles.sectionLabel}>Validated Voters</Text>
+                <View style={styles.aspirantProgressPill}>
+                  <Text style={styles.aspirantProgressText}>
+                    {validatedVotersList.length} ready
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.fieldHint}>
+                Add every voter allowed to vote - name, a unique code or index number,
+                and email. They'll be saved to VALIDATED_VOTERS_DB for this poll.
+              </Text>
+
+              {/* Option 1 vs Option 2 switch */}
+              <View style={styles.modeSwitchRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    voterValidationMode === "manual" && styles.modeButtonActive,
+                  ]}
+                  onPress={() => setVoterValidationMode("manual")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={14}
+                    color={voterValidationMode === "manual" ? "#fff" : "#6b7280"}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      voterValidationMode === "manual" && styles.modeButtonTextActive,
+                    ]}
+                  >
+                    Manual Entry
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    voterValidationMode === "file" && styles.modeButtonActive,
+                  ]}
+                  onPress={() => setVoterValidationMode("file")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={14}
+                    color={voterValidationMode === "file" ? "#fff" : "#6b7280"}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      voterValidationMode === "file" && styles.modeButtonTextActive,
+                    ]}
+                  >
+                    Upload File
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Option 2: Manual entry — dynamic rows, "+" to add another */}
+              {voterValidationMode === "manual" && (
+                <View>
+                  {manualVoters.map((voter, index) => {
+                    const code = voter.code.trim().toLowerCase();
+                    const isDupCode = !!code && voterCodeDuplicates.includes(code);
+                    const emailTrim = voter.email.trim();
+                    const email = emailTrim.toLowerCase();
+                    const isDupEmail = !!email && voterEmailDuplicates.includes(email);
+                    const isBadEmail = !!emailTrim && !isValidEmail(emailTrim);
+                    return (
+                      <View key={voter.id} style={styles.voterRow}>
+                        <View style={styles.voterRowInputs}>
+                          <TextInput
+                            style={[styles.input, styles.voterInputName]}
+                            placeholder="Voter name"
+                            placeholderTextColor="#b0b0b0"
+                            value={voter.name}
+                            onChangeText={(t) => updateManualVoter(voter.id, "name", t)}
+                            maxLength={80}
+                          />
+                          <TextInput
+                            style={[styles.input, styles.voterInputCode]}
+                            placeholder="Code / Index No."
+                            placeholderTextColor="#b0b0b0"
+                            value={voter.code}
+                            onChangeText={(t) => updateManualVoter(voter.id, "code", t)}
+                            autoCapitalize="characters"
+                            maxLength={40}
+                          />
+                        </View>
+                        <View style={styles.voterRowEmailWrap}>
+                          <TextInput
+                            style={[styles.input, styles.voterInputEmail]}
+                            placeholder="Email address"
+                            placeholderTextColor="#b0b0b0"
+                            value={voter.email}
+                            onChangeText={(t) => updateManualVoter(voter.id, "email", t)}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            maxLength={120}
+                          />
+                          {manualVoters.length > 1 && (
+                            <TouchableOpacity
+                              onPress={() => removeManualVoter(voter.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.removeVoterBtn}
+                            >
+                              <Ionicons name="close-circle" size={20} color="#d1d5db" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        {isDupCode && (
+                          <Text style={styles.errorText}>
+                            Duplicate code — each voter needs a unique code
+                          </Text>
+                        )}
+                        {isDupEmail && (
+                          <Text style={styles.errorText}>
+                            Duplicate email — each voter needs a unique email
+                          </Text>
+                        )}
+                        {isBadEmail && !isDupEmail && (
+                          <Text style={styles.errorText}>Invalid email address</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+
+                  <TouchableOpacity style={styles.addVoterBtn} onPress={addManualVoter}>
+                    <Ionicons name="add-circle-outline" size={16} color="#1F9F4E" />
+                    <Text style={styles.addVoterText}>Add voter</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Option 1: File upload — CSV, Excel, or Text */}
+              {voterValidationMode === "file" && (
+                <View>
+                  {!uploadedFileName ? (
+                    <TouchableOpacity
+                      style={styles.fileUploadBox}
+                      onPress={pickVoterFile}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="document-attach-outline" size={20} color="#1F9F4E" />
+                      <Text style={styles.fileUploadText}>
+                        Tap to upload CSV, Excel, or Text file
+                      </Text>
+                      <Text style={styles.fileUploadHint}>
+                        One voter per row — Name, Code, Email (e.g. John Mensah, VOTER001, john@example.com)
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.fileLoadedCard}>
+                      <View style={styles.fileLoadedHeader}>
+                        <Ionicons name="document-text-outline" size={18} color="#1F9F4E" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.fileLoadedName} numberOfLines={1}>
+                            {uploadedFileName}
+                          </Text>
+                          {parsingFile ? (
+                            <Text style={styles.fileLoadedCount}>Parsing…</Text>
+                          ) : (
+                            <Text style={styles.fileLoadedCount}>
+                              {uploadedVoters.length} voter{uploadedVoters.length === 1 ? "" : "s"} loaded
+                            </Text>
+                          )}
+                        </View>
+                        {parsingFile && <ActivityIndicator size="small" color="#1F9F4E" />}
+                      </View>
+
+                      {!parsingFile && uploadedVoters.length > 0 && (
+                        <View style={styles.filePreviewList}>
+                          {uploadedVoters.slice(0, 5).map((v, i) => (
+                            <Text key={`${v.code}-${i}`} style={styles.filePreviewItem}>
+                              {v.name} · {v.code} · {v.email}
+                            </Text>
+                          ))}
+                          {uploadedVoters.length > 5 && (
+                            <Text style={styles.filePreviewMore}>
+                              +{uploadedVoters.length - 5} more
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
+                      <View style={styles.fileActionsRow}>
+                        <TouchableOpacity onPress={pickVoterFile} style={styles.fileChangeBtn}>
+                          <Text style={styles.fileActionText}>Change file</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={clearUploadedFile} style={styles.fileRemoveBtn}>
+                          <Text style={[styles.fileActionText, { color: "#ef4444" }]}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {fileParseError && <Text style={styles.errorText}>{fileParseError}</Text>}
+                  {!fileParseError && voterCodeDuplicates.length > 0 && (
+                    <Text style={styles.errorText}>
+                      This file has duplicate codes — each voter needs a unique code.
+                    </Text>
+                  )}
+                  {!fileParseError && voterEmailDuplicates.length > 0 && (
+                    <Text style={styles.errorText}>
+                      This file has duplicate emails — each voter needs a unique email.
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
           {/* ── Publish ── */}
           <TouchableOpacity
             style={[
@@ -923,7 +1406,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "#e9ede7ff", margin: 5, },
   scrollContent: { paddingHorizontal: 4, paddingTop: 5, paddingBottom: 30 },
 
-  // Section cards
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -965,7 +1447,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   subFieldLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", marginBottom: 5 },
   optional: { fontWeight: "400", color: "#9ca3af" },
-  fieldHint: { fontSize: 12, color: "#9ca3af", marginBottom: 12, marginTop: -8 },
+  fieldHint: { fontSize: 12, marginHorizontal: 20, color: "#9ca3af", marginBottom: 12, marginTop: -8 },
 
   input: {
     borderWidth: 1,
@@ -981,7 +1463,6 @@ const styles = StyleSheet.create({
   inputError: { borderColor: "#ef4444", backgroundColor: "#fff5f5" },
   errorText: { fontSize: 13, color: "#ef4444", marginTop: 4, marginLeft: 2 },
 
-  // Logo
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1018,7 +1499,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
 
-  // Radio
   radioRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1043,7 +1523,6 @@ const styles = StyleSheet.create({
   radioTitleActive: { color: "#1F9F4E" },
   radioDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
 
-  // Aspirants
   aspirantCard: {
     borderWidth: 1,
     borderColor: "#eef0f2",
@@ -1071,7 +1550,6 @@ const styles = StyleSheet.create({
   addOptionBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4, justifyContent: "center" },
   addOptionText: { fontSize: 13, color: "#1F9F4E", fontWeight: "600" },
 
-  // Deadline
   deadlineRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1088,7 +1566,6 @@ const styles = StyleSheet.create({
   deadlineText: { flex: 1, fontSize: 14, color: "#9ca3af" },
   deadlineTextActive: { color: "#1F9F4E", fontWeight: "500" },
 
-  // Inline picker
   inlinePickerBox: {
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -1123,7 +1600,6 @@ const styles = StyleSheet.create({
   },
   inlineDoneText: { fontSize: 14, fontWeight: "700", color: "#fff" },
 
-  // Toggles
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1142,7 +1618,67 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
   toggleDesc: { fontSize: 12, color: "#9ca3af", marginTop: 2 },
 
-  // Success banner + segmented button
+  modeSwitchRow: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 14,
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  modeButtonActive: { backgroundColor: "#1F9F4E" },
+  modeButtonText: { fontSize: 13, fontWeight: "600", color: "#6b7280" },
+  modeButtonTextActive: { color: "#fff" },
+
+  voterRow: { marginBottom: 10 },
+  voterRowInputs: { flexDirection: "row", gap: 8 },
+  voterInputName: { flex: 1.4 },
+  voterInputCode: { flex: 1 },
+  voterRowEmailWrap: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  voterInputEmail: { flex: 1 },
+  removeVoterBtn: { padding: 2 },
+  addVoterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4, justifyContent: "center" },
+  addVoterText: { fontSize: 13, color: "#1F9F4E", fontWeight: "600" },
+
+  fileUploadBox: {
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#A2E0B8",
+    borderStyle: "dashed",
+    borderRadius: 10,
+    padding: 20,
+    backgroundColor: "#EAF6EE",
+  },
+  fileUploadText: { fontSize: 13, color: "#1F9F4E", fontWeight: "600" },
+  fileUploadHint: { fontSize: 11, color: "#6b9c7c", textAlign: "center" },
+  fileLoadedCard: {
+    borderWidth: 1,
+    borderColor: "#cdeed9",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#fbfffc",
+  },
+  fileLoadedHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  fileLoadedName: { fontSize: 13, fontWeight: "700", color: "#374151" },
+  fileLoadedCount: { fontSize: 12, color: "#6b7280", marginTop: 1 },
+  filePreviewList: { marginTop: 10, gap: 3 },
+  filePreviewItem: { fontSize: 12, color: "#4b5563" },
+  filePreviewMore: { fontSize: 12, color: "#9ca3af", fontStyle: "italic", marginTop: 2 },
+  fileActionsRow: { flexDirection: "row", gap: 16, marginTop: 10 },
+  fileChangeBtn: { paddingVertical: 4 },
+  fileRemoveBtn: { paddingVertical: 4 },
+  fileActionText: { fontSize: 13, fontWeight: "600", color: "#1F9F4E" },
+
   successBanner: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -1195,7 +1731,6 @@ const styles = StyleSheet.create({
 
   dividerThin: { height: 0.5, backgroundColor: "#f3f4f6", marginVertical: 2 },
 
-  // Publish
   publishBtn: {
     flexDirection: "row",
     alignItems: "center",

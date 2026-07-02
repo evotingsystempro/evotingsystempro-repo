@@ -63,6 +63,7 @@ POLL_TITLE_DB
                     ├── pollId: string
                     ├── title: string
                     ├── pollType: "single" | "multiple"
+                    ├── requires_voters_validation: "true" | "false"
                     ├── isAnonymous: boolean
                     ├── logoUrl: ""
                     ├── showResults: boolean
@@ -98,6 +99,7 @@ VOTERS_DB
                     ├── creatorEmail: string
                     ├── aspirantVoted: string | string[]
                     └── votedAt: timestamp
+
 ```
 
 ---

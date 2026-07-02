@@ -1,5 +1,5 @@
 //loginHome.tsx
-import React, { useCallback, useContext, useMemo } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Image,
   Dimensions,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -54,7 +55,14 @@ function GrainOverlay() {
     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
       {dots.map((d) => (
         <View key={d.key} style={{
-          position: "relative",
+          // NOTE: was `position: "relative"`, which meant every dot first
+          // took up space in the parent's normal (column) flow before
+          // being nudged by top/left — so all 55 dots stacked down the
+          // left edge instead of scattering across the full overlay.
+          // "absolute" positions each dot purely by its top/left percent
+          // relative to the overlay's bounds, which is what the random
+          // scatter math here is actually meant to produce.
+          position: "absolute",
           top: `${d.top}%` as any,
           left: `${d.left}%` as any,
           width: d.size, height: d.size,
@@ -104,6 +112,7 @@ function Background() {
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, isLoading, userId } = useContext(GlobalContext);
+  const [signingIn, setSigningIn] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,9 +120,26 @@ export default function LoginScreen() {
     }, [userId])
   );
 
+  // Previously this only logged to console on failure — tapping the
+  // button on a failed sign-in (blocked popup, cancelled OAuth flow,
+  // dropped network, etc.) looked exactly like nothing happened at all.
+  // Now the user gets a visible alert and the button shows a spinner
+  // while the request is in flight, so a slow network doesn't look like
+  // a dead button either.
   const handleGoogleSignIn = async () => {
-    try { await signIn(); }
-    catch (err: any) { console.error("Google sign-in failed:", err.message); }
+    if (signingIn) return;
+    setSigningIn(true);
+    try {
+      await signIn();
+    } catch (err: any) {
+      console.error("Google sign-in failed:", err?.message ?? err);
+      Alert.alert(
+        "Sign-in failed",
+        "We couldn't sign you in with Google. Please check your connection and try again."
+      );
+    } finally {
+      setSigningIn(false);
+    }
   };
 
   if (isLoading) {
@@ -167,15 +193,22 @@ export default function LoginScreen() {
                     onPress={handleGoogleSignIn}
                     style={S.socialButton}
                     activeOpacity={0.82}
+                    disabled={signingIn}
                   >
                     <View style={S.googleIconWrap}>
-                      <Image
-                        source={require("@/assets/images/google-icon.png")}
-                        style={S.logoGoogle}
-                      />
+                      {signingIn ? (
+                        <ActivityIndicator size="small" color={T.brand} />
+                      ) : (
+                        <Image
+                          source={require("@/assets/images/google-icon.png")}
+                          style={S.logoGoogle}
+                        />
+                      )}
                     </View>
                     <View style={S.btnTextBlock}>
-                      <Text style={S.socialBtnText}>Continue with Google</Text>
+                      <Text style={S.socialBtnText}>
+                        {signingIn ? "Signing in…" : "Continue with Google"}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -218,48 +251,11 @@ const S = StyleSheet.create({
 
   /* ── Hero ── */
   hero: { alignItems: "center", marginBottom: 32 },
-  logoGlowOuter: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: "rgba(22,163,74,0.16)",
-    alignItems: "center", justifyContent: "center", marginBottom: 34,
-  },
-  logoGlowInner: {
-    width: 78, height: 78, borderRadius: 39,
-    backgroundColor: "rgba(255,255,255,0.85)",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: "rgba(22,163,74,0.25)",
-  },
-  logo: { width: 100, height: 100, position: "relative", bottom: 30 },
+  logo: { width: 70, height: 70, position: "relative", bottom: 30 },
   appName: { fontSize: 25, fontWeight: "800", color: T.brand, letterSpacing: -0.6, marginBottom: 4 },
-  appTagline: { fontSize: 22, fontWeight: "500", color: T.brandDeep, marginBottom: 20, textAlign: "center" },
   heroDivider: { flexDirection: "row", alignItems: "center", gap: 8, width: 120 },
   heroDividerLine: { flex: 1, height: 1, backgroundColor: T.brandBorder, borderRadius: 1 },
   heroDividerDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: T.brandMuted },
-
-  /* ── Auth Card ── */
-  authCard: {
-    marginBottom: 32,
-    // width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.88)",
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderWidth: 12,
-    borderColor: "rgba(167,243,208,0.70)",
-    gap: 20,
-  },
-
-  /* ── Secure label ── */
-  labelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  labelLine: { flex: 1, height: 1, backgroundColor: T.divider },
-  labelBadge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: T.brandLight,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: T.brandBorder,
-  },
-  labelText: { fontSize: 15, fontWeight: "700", color: T.brand, letterSpacing: 0.3 },
 
   /* ── Button wrapper rings ── */
   btnWrapper: { alignItems: "center" },
@@ -300,23 +296,17 @@ const S = StyleSheet.create({
     elevation: 2,
   },
   logoGoogle: { width: 27, height: 27 },
-  btnTextBlock: { flex: 1 },
+  // NOTE: was `{ flex: 1 }`. The parent `socialButton` is
+  // `alignSelf: "center"` (shrink-to-fit width). Native Yoga (iOS/Android)
+  // resolves a flex:1 child inside a shrink-wrap row fine, but
+  // react-native-web compiles this to real CSS flexbox, where a flex:1
+  // child inside a shrink-to-fit row commonly resolves to width: 0 unless
+  // minWidth: 0 is set — the <Text> is in the DOM but invisible because
+  // its box has zero width. Dropping flex:1 (with flexShrink so long
+  // labels still wrap instead of overflowing) sizes the text to its
+  // content consistently on both native and web.
+  btnTextBlock: { flexShrink: 1 },
   socialBtnText: { fontSize: 17, color: T.ink, fontWeight: "700" },
-  socialBtnSub: { fontSize: 11, color: T.inkMuted, marginTop: 1 },
-
-  /* ── Trust badges ── */
-  trustRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  trustBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
-  trustText: { fontSize: 11, color: T.inkMuted, fontWeight: "500" },
-  trustDot: {
-    width: 3, height: 3, borderRadius: 2,
-    backgroundColor: T.brandBorder,
-  },
 
   /* ── Footer ── */
   footer: { alignItems: "center", gap: 8 },

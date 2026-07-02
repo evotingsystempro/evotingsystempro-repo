@@ -76,6 +76,7 @@ const ADMIN_EMAILS: ReadonlySet<string> = new Set([
   "smartlearnerstech@gmail.com",
   "evotingsystempro@gmail.com",
   "evotingpro@gmail.com",
+  "gordonlydia026@gmail.com",
 ]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -507,7 +508,7 @@ const MemberListItem = React.memo(function MemberListItem({
     >
       <View style={[itemStyles.avatarRing, { borderColor: isOnline ? "#16d51f" : "#eee" }]}>
         <Image
-          source={require("@/assets/images/userImagePlaceHolder.jpeg")}
+          source={require("@/assets/images/userImagePlaceHolder.png")}
           style={itemStyles.avatarPlaceholder}
           resizeMode="cover"
         />
@@ -669,7 +670,7 @@ const headerStyles = StyleSheet.create({
   creditBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#ef4444", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 10, paddingRight: 12 },
   helpBtn: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#f59e0b", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, paddingRight: 15 },
   actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  searchWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 20, backgroundColor: "#f9fafb", paddingHorizontal: 8, paddingVertical: 4, width: "96%" },
+  searchWrap: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 20, backgroundColor: "#edeff0ff", paddingHorizontal: 8, paddingVertical: 4, width: "96%" },
   searchIcon: { marginRight: 3 },
   searchInput: { flex: 1, fontSize: 13, color: "#333", paddingVertical: 5, minWidth: 0, ...(Platform.OS === "web" && { outlineStyle: "none", outlineWidth: 0 } as any) },
   clearBtn: { padding: 2 },
@@ -1109,14 +1110,15 @@ export default function MembersList() {
 
   const setApp_update_status_action = () => {
     setApp_update_status(Platform.OS === "web" ? false : !isConnectedNET ? false : true)
-    router.replace("./members_list");
+    router.navigate("/");
   }
+
 
   if (!deviceCheckDone || showLoader) {
     return (
       <ReusableScreen>
         <View style={globalStyles.loaderContainer}>
-          <ActivityIndicator size="large" color="#F97316" />
+          <ActivityIndicator size="large" color="#1f9b11ff" />
           {!deviceCheckDone && <Text style={globalStyles.loaderText}>Verifying device…</Text>}
         </View>
       </ReusableScreen>

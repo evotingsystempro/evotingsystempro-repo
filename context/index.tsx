@@ -88,20 +88,20 @@ type UserStatus = {
 
 // ==================== CONSTANTS ====================
 
-const APP_VERSION = { apkVersionCount: 1, apkVersion: "2.5.1" };
+const APP_VERSION = { apkVersionCount: 1, apkVersion: "1.0.0" };
 const CHAT_CACHE_KEY = "CHAT_MESSAGES_CACHE";
 
 const APP_UPDATE_DOC_REF = doc(db, "APP_UPDATE_DB", "app_update_0");
 const ANNOUNCEMENT_DOC_REF = doc(db, "AnnouncementDB", "announcement1");
 
 const DEFAULT_APP_UPDATE_DATA = {
-  app_update_count: 6,
+  app_update_count: 1,
   app_update_date: "",
   app_update_description:
     "The APK version will soon be available for download, featuring new and improved functionalities.",
   app_update_status: false,
   app_update_title: "Update not available",
-  app_update_url: "https://smartpeople.expo.app",
+  app_update_url: "https://evotingsystempro.expo.app",
   app_update_version: "APK V0.0.0",
 } as const;
 
@@ -112,7 +112,7 @@ const DEFAULT_ANNOUNCEMENT_DATA = {
   announcementContent3: "",
   announcementStatus: true,
   announcementTitle: "EXTENDED TO 6PM",
-  apkUrl: "https://smartpeople.expo.app",
+  apkUrl: "https://evotingsystempro.expo.app",
   apkVersion: "APK V0.0.0",
   closeAppThroughout: false,
   date: new Date("2025-11-30T15:12:59Z"),

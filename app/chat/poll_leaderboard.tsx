@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     RefreshControl,
+    Platform,
 } from "react-native";
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -33,6 +34,8 @@ interface Poll {
     pollId: string;
     title: string;
     pollType: "single" | "multiple";
+    requires_voters_validation: boolean;
+    poll_verification_status?: "verified" | "not_verified";   // ← NEW
     isAnonymous: boolean;
     showResults: boolean;
     deadline: string | null;
@@ -41,7 +44,7 @@ interface Poll {
     creatorName: string;
     aspirantCount: number;
     dateCreated: string;
-    poll_verification_status?: "verified" | "not_verified";   // ← NEW
+
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -409,34 +412,42 @@ export default function PollLeaderboardScreen() {
         );
     }
 
-    // ── Render ───────────────────────────────────────<Text style={[styles.pollTitle, { flex: 1, }]} ellipsizeMode="tail" numberOfLines={2}>─────────────────────────
+    // ── Render ───────────<Text style={[styles.pollTitle, { flex: 1, }]} ellipsizeMode="tail" numberOfLines={2}>─────────────────────────
 
     return (
         <ReusableScreen>
-            <View>
-                <View style={{ paddingTop: 16, paddingBottom: 5, marginHorizontal: 16, flexDirection: "row", alignItems: "center", flex: 1 }}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
-                    </TouchableOpacity>
-                    <View style={{ backgroundColor: "#fff", alignItems: "center", flexDirection: "column", justifyContent: "flex-end", flex: 1 }}>
-                        <View style={{ marginBottom: 5 }}><Text style={styles.headerTitle} ellipsizeMode="tail" numberOfLines={1}>{poll.title}</Text></View>
-                        <View style={styles.footerMeta}>
-                            <View><Text style={styles.footerMetaText}>Created by {poll.creatorName},</Text></View>
-                            {poll.isAnonymous && (
-                                <View style={styles.anonBadge}>
-                                    <Ionicons name="eye-off-outline" size={11} color="#6b7280" />
-                                    <Text style={styles.anonText}>Anonymous voting</Text>
-                                </View>
-                            )}
-                            <View style={{ backgroundColor: "#04a988ff", paddingHorizontal: 10, paddingVertical: 2, borderRadius: 10 }}>
-                                <Text style={{ color: "#fff", fontSize: 11, }}>
-                                    {poll.pollType === "single" ? "Single-vote poll" : "Multiple-vote poll"}
-                                </Text>
+            <View style={styles.topHeader}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Ionicons name="arrow-back" size={18} color="#1F9F4E" />
+                </TouchableOpacity>
+
+                <View style={styles.titleBlock}>
+                    <Text style={styles.headerTitle} ellipsizeMode="tail" numberOfLines={1}>
+                        {poll.title}
+                    </Text>
+
+                    <View style={styles.footerMeta}>
+                        <Text style={styles.footerMetaText}>Creator: {poll.creatorName},</Text>
+
+                        {poll.isAnonymous && (
+                            <View style={styles.anonBadge}>
+                                <Ionicons name="eye-off-outline" size={11} color="#6b7280" />
+                                <Text style={styles.anonText}>Anonymous voting</Text>
                             </View>
+                        )}
+
+                        <View style={styles.pollTypeBadge}>
+                            <Text style={styles.pollTypeBadgeText}>
+                                {poll.pollType === "single" ? "Single-vote poll" : "Multiple-vote poll"}
+                            </Text>
                         </View>
                     </View>
                 </View>
+
             </View>
 
             <View style={styles.body}>
@@ -457,6 +468,24 @@ export default function PollLeaderboardScreen() {
                                 {closed ? (expired ? "Expired" : "Closed") : "Live"}
                             </Text>
                         </View>
+
+                        {poll.poll_verification_status === "verified" ? (
+                            <View style={{ paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20, backgroundColor: "#EAF6EE", flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                <MaterialIcons name="verified" size={12} color="#3abf1fff" />
+                                <Text style={{ color: "#299114ff", fontSize: 14, fontWeight: "500" }}>
+                                    Verified
+                                </Text>
+                            </View>
+                        ) : (
+                            <View style={{ paddingHorizontal: 9, paddingVertical: 2, borderRadius: 20, backgroundColor: "#fee2e2", flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                <MaterialIcons name="cancel" size={12} color="#ef4444" />
+                                <Text style={{ color: "#ef4444", fontSize: 12, fontWeight: "500" }}>
+                                    Not Verified
+                                </Text>
+                            </View>
+                        )}
+
+
                         <View style={styles.metaChip}>
                             <MaterialIcons name="how-to-vote" size={18} color="#6b7280" />
                             <Text style={styles.metaChipText}>{total} vote{total !== 1 ? "s" : ""}</Text>
@@ -482,6 +511,8 @@ export default function PollLeaderboardScreen() {
                                 <Text style={styles.deadlinePill}>{formatDeadline(poll.deadline)}</Text>
                             </View>
                         )}
+
+
                     </View>
 
                     {!alreadyVoted && poll.pollType === "single" && (
@@ -584,8 +615,8 @@ export default function PollLeaderboardScreen() {
                                                             >
                                                                 <AntDesign
                                                                     name="like1"
-                                                                    size={22}
-                                                                    color={hasVotedThis ? "#1F9F4E" : "#9b9b9b"}
+                                                                    size={18}
+                                                                    color={hasVotedThis ? "#1F9F4E" : "#999"}
                                                                 />
                                                                 <Text style={[styles.thumbCount, hasVotedThis && styles.thumbCountActive]}>
                                                                     {hasVotedThis ? 1 : 0}
@@ -669,10 +700,7 @@ const styles = StyleSheet.create({
         width: 32, height: 32, borderRadius: 16,
         backgroundColor: "#EAF6EE", alignItems: "center", justifyContent: "center",
     },
-    headerTitle: {
-        flex: 1, fontSize: 16, fontWeight: "700", color: "#1a1a1a", width: 280,
-        textAlign: "center", marginHorizontal: 8, letterSpacing: -0.2,
-    },
+
 
     body: { flex: 1, backgroundColor: "#fff", margin: 2, borderRadius: 12, overflow: "hidden" },
     scroll: { flex: 1, backgroundColor: "#e9ede7ff", margin: 5 },
@@ -680,7 +708,7 @@ const styles = StyleSheet.create({
 
     statusRow: {
         flexDirection: "row", alignItems: "center", gap: 2, flexWrap: "wrap",
-        paddingHorizontal: 3, paddingVertical: 10, backgroundColor: "#fff",
+        paddingHorizontal: 8, paddingVertical: 10, backgroundColor: "#fff",
     },
     statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
     badgeActive: { backgroundColor: "#EAF6EE" },
@@ -704,14 +732,14 @@ const styles = StyleSheet.create({
     cardsWrap: { paddingHorizontal: 0 },
 
     card: {
-        backgroundColor: "#fff", borderRadius: 12, padding: 14,
+        backgroundColor: "#fff", borderRadius: 12, padding: 14, marginVertical: 2, marginHorizontal: 5,
         borderWidth: 1, borderColor: "#ddd", marginBottom: 2,
     },
     cardTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     avatar: { width: 45, height: 45, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     avatarText: { color: "#fff", fontWeight: "800", fontSize: 18 },
     cardNameBlock: { flex: 1, gap: 2 },
-    cardName: { width: 250, fontSize: 15, fontWeight: "700", color: "#1a1a1a" },
+    cardName: { width: 250, fontSize: 14, fontWeight: "700", color: "#1a1a1a" },
     cardEmail: { width: 250, fontSize: 12, color: "#9ca3af" },
 
     timeBadge: {
@@ -743,14 +771,14 @@ const styles = StyleSheet.create({
 
     noticeRow: {
         flexDirection: "row", alignItems: "center",
-        marginHorizontal: 2, marginVertical: 5, padding: 12, gap: 4,
+        marginHorizontal: 6, marginVertical: 5, padding: 12, gap: 4,
         borderRadius: 10, backgroundColor: "#cffbe5e1", borderWidth: 3, borderColor: "#fff"
     },
     noticeRowClosed: { backgroundColor: "#fee2e2" },
     noticeText: { lineHeight: 18, fontSize: 13, color: "#494c4aff", flex: 1, fontWeight: "500" },
     noticeTextClosed: { color: "#ef4444" },
 
-    footerMeta: { alignItems: "center", flexDirection: "row", paddingHorizontal: 2, paddingTop: 2, gap: 2, position: "relative", left: 3 },
+
     footerMetaText: { fontSize: 13, color: "#9ca3af", textAlign: "center" },
     anonBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
     anonText: { fontSize: 12, color: "#6b7280" },
@@ -761,5 +789,60 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "#ef4444",
         fontWeight: "600",
+    },
+
+
+
+
+    // add to header, replacing the old fixed-width version
+
+    headerTitle: {
+        width: "90%",           // ← replaces flex: 1 — gives Text a bounded width so ellipsis/numberOfLines works
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#1a1a1a",
+        textAlign: "center",
+        marginHorizontal: 8,
+        marginBottom: 3,
+        lineHeight: 20,
+        letterSpacing: -0.2,
+    },
+    // new
+    topHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginHorizontal: 16,
+        paddingTop: Platform.select({ ios: 12, android: 16, default: 20 }),
+        borderBottomWidth: 1, borderColor: "#ddd", paddingBottom: 8,
+    },
+    titleBlock: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "flex-start",
+        paddingHorizontal: 4, position: "relative", bottom: 5,
+    },
+    headerSpacer: {
+        width: 32, // matches backBtn's width exactly
+    },
+    pollTypeBadge: {
+        backgroundColor: "#c6f3eaff",
+        paddingHorizontal: 10,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    pollTypeBadgeText: {
+        color: "#14715eff",
+        fontSize: 13,
+    },
+
+    // footerMeta: replace the old version with this
+    footerMeta: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        flexWrap: "wrap",
+        rowGap: 4,
+        columnGap: 6,
+        paddingTop: 4,   // bumped from 2
     },
 });

@@ -91,7 +91,7 @@ export default function RootLayout() {
                     fontSize: 18,
                     fontWeight: "700",
                   },
-                  statusBarBackgroundColor: "#f98304",
+                  statusBarBackgroundColor: "#31910bff",
                   statusBarStyle: "light",
                   headerTintColor: "#ffffff",
                   navigationBarColor: "#ffffff",
@@ -111,6 +111,7 @@ export default function RootLayout() {
                 <Stack.Screen name="chat/profile" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/create_poll_screen" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/PollsListScreen" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/poll_leaderboard" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/quiz" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/userChatMessages" options={{ headerShown: false }} />
                 <Stack.Screen name="PrivacyPolicy&TermsOfUse" options={{ headerShown: false }} />

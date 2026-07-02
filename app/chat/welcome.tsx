@@ -115,9 +115,9 @@ const FeaturesCard: React.FC = () => (
       title="Multiple-Choice Poll"
       description={
         <>
-          Allow voters to select{" "}
+          Allow voters to vote for{" "}
           <Text style={styles.highlightBlue}>multiple candidates</Text> in a
-          single poll.
+          single poll. And voters are as well able to vote for any candidate multiple times.
         </>
       }
     />
@@ -146,7 +146,7 @@ const FeaturesCard: React.FC = () => (
           Upload a{" "}
           <Text style={styles.highlightPurple}>CSV, Excel, or Text file</Text>{" "}
           of eligible voters. Only registered voters on your list can participate
-          — keeping your election secure and verified.
+          to keep the election secure and verified.
         </>
       }
     />
@@ -387,11 +387,11 @@ export default function WelcomePage() {
 
 
           {/* ── LOGGED-IN USER PILL ── */}
-          {userTraditional?.email ? (
+          {userTraditional && userTraditional.email ? (
             <View style={styles.userPill}>
               <Ionicons name="person-circle-outline" size={15} color={C.brand} />
               <Text style={styles.userPillText} numberOfLines={1}>
-                {userTraditional.email}
+                {String(userTraditional.email)}
               </Text>
             </View>
           ) : null}
@@ -402,7 +402,7 @@ export default function WelcomePage() {
         <View style={styles.footerContainer}>
           <View style={styles.startContainer}>
             <TouchableOpacity
-              onPress={() => userId ? router.push("./members_list") : router.push("/")}
+              onPress={() => (userId ? router.push("./members_list") : router.push("/"))}
               style={styles.startButton}
               activeOpacity={0.88}
             >
@@ -420,10 +420,11 @@ export default function WelcomePage() {
               activeOpacity={0.88}
               disabled={isResetting}
             >
-              {isResetting
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="log-out-outline" size={16} color="#fff" />
-              }
+              {isResetting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="log-out-outline" size={16} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
         </View>

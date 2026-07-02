@@ -627,7 +627,7 @@ export default function comments_flashList() {
         );
         saveLocal(messages);
         await fetch(
-          "https://email-service-376826674474.us-central1.run.app/push_notification",
+          "https://email-service-570014654568.us-central1.run.app/push_notification",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

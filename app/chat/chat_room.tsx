@@ -1269,7 +1269,7 @@ Task: ${task}
   const sendPushNotification = useCallback(async (localMsg: ChatMessage) => {
     if (!clientEmail || isClientOnline) return;
     try {
-      await fetch('https://email-service-376826674474.us-central1.run.app/push_notification_to_a_specific_user', {
+      await fetch('https://email-service-570014654568.us-central1.run.app/push_notification_to_a_specific_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1477,7 +1477,7 @@ Task: ${task}
     if (typeof clientIconUri === 'string') {
       return (
         <View style={styles.avatarWrapper}>
-          <Image source={require('@/assets/images/userImagePlaceHolder.jpeg')} style={styles.avatarPlaceholder} resizeMode="cover" />
+          <Image source={require('@/assets/images/userImagePlaceHolder.png')} style={styles.avatarPlaceholder} resizeMode="cover" />
           <Image source={{ uri: Array.isArray(clientIconUri) ? clientIconUri[0] : clientIconUri }} style={styles.avatarFull} resizeMode="cover" />
         </View>
       );

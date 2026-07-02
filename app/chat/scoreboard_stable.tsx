@@ -535,7 +535,7 @@ export default function ScoreboardScreen() {
                             {item.userPhotoUrl ? (
                                 <View>
                                     <Image
-                                        source={require("@/assets/images/userImagePlaceHolder.jpeg")}
+                                        source={require("@/assets/images/userImagePlaceHolder.png")}
                                         style={{
                                             width: "50%",
                                             backgroundColor: "#f0f0f0",
